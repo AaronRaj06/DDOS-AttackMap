@@ -5,16 +5,17 @@ import getStarfield from '../utils/getStarfield';
 import { drawThreeGeo } from '../utils/threeGeoJSON';
 import './Globe.css';
 
-// Convert lat/lon to 3D coordinates on sphere
+// Convert lat/lon to 3D coordinates - EXACT match to threeGeoJSON.js
 function latLonToVector3(lat, lon, radius) {
-  const phi = (90 - lat) * (Math.PI / 180);
-  const theta = (lon + 180) * (Math.PI / 180);
-
-  const x = -(radius * Math.sin(phi) * Math.cos(theta));
-  const z = (radius * Math.sin(phi) * Math.sin(theta));
-  const y = (radius * Math.cos(phi));
-
-  return new THREE.Vector3(x, y, z);
+  // This is the EXACT formula from threeGeoJSON.js convertToSphereCoords
+  const x = Math.cos(lat * Math.PI / 180) * Math.cos(lon * Math.PI / 180) * radius;
+  const y = Math.cos(lat * Math.PI / 180) * Math.sin(lon * Math.PI / 180) * radius;
+  const z = Math.sin(lat * Math.PI / 180) * radius;
+  
+  // The GeoJSON container is rotated by container.rotation.x = -Math.PI * 0.5
+  // So we need to rotate our coordinates the same way
+  // Rotation around X-axis by -90 degrees: new_y = z, new_z = -y
+  return new THREE.Vector3(x, z, -y);
 }
 
 // Get color based on threat score
@@ -42,7 +43,7 @@ function Globe({ events = [] }) {
     sceneRef.current = scene;
 
     // Camera setup
-    const camera = new THREE.PerspectiveCamera(75, w / h, 1, 100);
+    const camera = new THREE.PerspectiveCamera(75, w / h, 0.1, 1000);
     camera.position.z = 5;
 
     // Renderer setup
@@ -57,7 +58,7 @@ function Globe({ events = [] }) {
     controls.rotateSpeed = 0.5;
 
     // Globe wireframe
-    const geometry = new THREE.SphereGeometry(2);
+    const geometry = new THREE.SphereGeometry(2, 32, 32);
     const lineMat = new THREE.LineBasicMaterial({
       color: 0xffffff,
       transparent: true,
@@ -70,6 +71,86 @@ function Globe({ events = [] }) {
     // Starfield
     const stars = getStarfield({ numStars: 1000 });
     scene.add(stars);
+
+    // RANDOM ATTACK GENERATOR for demo
+    const createRandomArc = () => {
+      const locations = [
+        { name: 'USA', lat: 40.7128, lon: -74.0060 },
+        { name: 'UK', lat: 51.5074, lon: -0.1278 },
+        { name: 'Germany', lat: 52.5200, lon: 13.4050 },
+        { name: 'France', lat: 48.8566, lon: 2.3522 },
+        { name: 'Russia', lat: 55.7558, lon: 37.6173 },
+        { name: 'China', lat: 39.9042, lon: 116.4074 },
+        { name: 'Japan', lat: 35.6762, lon: 139.6503 },
+        { name: 'India', lat: 28.6139, lon: 77.2090 },
+        { name: 'Brazil', lat: -23.5505, lon: -46.6333 },
+        { name: 'Australia', lat: -33.8688, lon: 151.2093 },
+        { name: 'Canada', lat: 43.6532, lon: -79.3832 },
+        { name: 'South Korea', lat: 37.5665, lon: 126.9780 },
+      ];
+      
+      const colors = [0xff0000, 0xff6600, 0xffaa00, 0x00ff00];
+      const src = locations[Math.floor(Math.random() * locations.length)];
+      const dst = locations[Math.floor(Math.random() * locations.length)];
+      
+      if (src === dst) return; // Skip if same location
+      
+      const GLOBE_RADIUS = 2.0;
+      const ARC_RADIUS = GLOBE_RADIUS + 0.02;
+      
+      const start = latLonToVector3(src.lat, src.lon, ARC_RADIUS);
+      const end = latLonToVector3(dst.lat, dst.lon, ARC_RADIUS);
+      
+      const distance = start.distanceTo(end);
+      const mid = new THREE.Vector3().addVectors(start, end).multiplyScalar(0.5);
+      const arcHeight = GLOBE_RADIUS + Math.min(distance * 0.3, 0.6);
+      mid.normalize().multiplyScalar(arcHeight);
+      
+      const curve = new THREE.QuadraticBezierCurve3(start, mid, end);
+      const color = colors[Math.floor(Math.random() * colors.length)];
+      
+      // Main arc
+      const tubeGeo = new THREE.TubeGeometry(curve, 64, 0.015, 8, false);
+      const tubeMat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 1.0 });
+      const arc = new THREE.Mesh(tubeGeo, tubeMat);
+      scene.add(arc);
+      arcsRef.current.push(arc);
+      
+      // Glow
+      const glowGeo = new THREE.TubeGeometry(curve, 64, 0.025, 8, false);
+      const glowMat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.5 });
+      const glow = new THREE.Mesh(glowGeo, glowMat);
+      scene.add(glow);
+      arcsRef.current.push(glow);
+      
+      // Source marker
+      const srcGeo = new THREE.SphereGeometry(0.04, 16, 16);
+      const srcMat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 1.0 });
+      const srcMarker = new THREE.Mesh(srcGeo, srcMat);
+      srcMarker.position.copy(start);
+      srcMarker.userData.isPulse = true;
+      scene.add(srcMarker);
+      arcsRef.current.push(srcMarker);
+      
+      // Destination marker
+      const dstGeo = new THREE.SphereGeometry(0.05, 16, 16);
+      const dstMat = new THREE.MeshBasicMaterial({ color: 0xff0000, transparent: true, opacity: 1.0 });
+      const dstMarker = new THREE.Mesh(dstGeo, dstMat);
+      dstMarker.position.copy(end);
+      dstMarker.userData.isPulse = true;
+      scene.add(dstMarker);
+      arcsRef.current.push(dstMarker);
+      
+      console.log(`🎯 Random arc: ${src.name} → ${dst.name}`);
+    };
+    
+    // Generate random arcs every 2 seconds continuously
+    const generateArcs = () => {
+      createRandomArc();
+      setTimeout(generateArcs, 2000); // New arc every 2 seconds
+    };
+    
+    setTimeout(generateArcs, 1000); // Start after 1 second
 
     // Load GeoJSON
     fetch('/geojson/ne_110m_land.json')
@@ -87,14 +168,23 @@ function Globe({ events = [] }) {
       .catch(error => console.error('Error loading GeoJSON:', error));
 
     // Animation loop
+    let clock = 0;
     function animate() {
       requestAnimationFrame(animate);
+      clock += 0.01;
 
-      // Update arcs (fade out)
+      // Update arcs with fade animation
       arcsRef.current.forEach((arc, index) => {
-        if (arc.material && arc.material.opacity > 0) {
-          arc.material.opacity -= 0.002;
-        } else if (arc.material) {
+        if (arc.userData.isPulse) {
+          // Pulsing effect for markers
+          const scale = 1 + Math.sin(clock * 3) * 0.2;
+          arc.scale.set(scale, scale, scale);
+        }
+
+        // Fade out arcs over time (stay visible for ~7 seconds)
+        if (arc.material && arc.material.transparent && arc.material.opacity > 0) {
+          arc.material.opacity -= 0.0005; // Very slow fade
+        } else if (arc.material && arc.material.opacity <= 0) {
           scene.remove(arc);
           arcsRef.current.splice(index, 1);
         }
@@ -128,81 +218,114 @@ function Globe({ events = [] }) {
 
   // Create 3D TUBE arc when new event received
   useEffect(() => {
-    console.log('🎯 Events:', events.length);
+    console.log('🎯 Events received:', events.length);
+    console.log('📊 Latest event:', events[events.length - 1]);
 
-    if (!sceneRef.current || events.length === 0) return;
+    if (!sceneRef.current) {
+      console.log('❌ Scene not initialized');
+      return;
+    }
+
+    if (events.length === 0) {
+      console.log('⚠️ No events yet');
+      return;
+    }
 
     const latestEvent = events[events.length - 1];
-    if (!latestEvent.src_lat || !latestEvent.dst_lat) return;
+    console.log('🔍 Event data:', {
+      src: `${latestEvent.src_country} (${latestEvent.src_lat}, ${latestEvent.src_lon})`,
+      dst: `${latestEvent.dst_country} (${latestEvent.dst_lat}, ${latestEvent.dst_lon})`,
+      score: latestEvent.suspicious_score
+    });
 
-    console.log('✅ Creating 3D TUBE arc:', latestEvent.src_country, '→', latestEvent.dst_country);
+    if (!latestEvent.src_lat || !latestEvent.dst_lat) {
+      console.log('❌ Missing coordinates!');
+      return;
+    }
 
-    // Create arc curve
-    const start = latLonToVector3(latestEvent.src_lat, latestEvent.src_lon, 2.1);
-    const end = latLonToVector3(latestEvent.dst_lat, latestEvent.dst_lon, 2.1);
+    console.log('✅ Creating arc:', latestEvent.src_country, '→', latestEvent.dst_country);
+
+    // Create arc curve - Place ABOVE globe surface
+    const GLOBE_RADIUS = 2.0;
+    const ARC_RADIUS = GLOBE_RADIUS + 0.02; // Just above surface
+    
+    const start = latLonToVector3(latestEvent.src_lat, latestEvent.src_lon, ARC_RADIUS);
+    const end = latLonToVector3(latestEvent.dst_lat, latestEvent.dst_lon, ARC_RADIUS);
+
+    console.log('📍 Start:', start, 'End:', end);
 
     const distance = start.distanceTo(end);
     const mid = new THREE.Vector3().addVectors(start, end).multiplyScalar(0.5);
-    const arcHeight = 2.1 + (distance * 0.5);
+    const arcHeight = GLOBE_RADIUS + Math.min(distance * 0.25, 0.5); // Cap max height
     mid.normalize().multiplyScalar(arcHeight);
 
     const curve = new THREE.QuadraticBezierCurve3(start, mid, end);
     const color = getThreatColor(latestEvent.suspicious_score || 0.5);
+    
+    console.log('🎨 Color:', `#${color.toString(16)}`);
 
-    // ✨ 3D TUBE GEOMETRY (visible!)
-    const tubeGeometry = new THREE.TubeGeometry(curve, 50, 0.01, 8, false);
+    // Main arc tube - BRIGHT AND VISIBLE
+    const tubeGeometry = new THREE.TubeGeometry(curve, 64, 0.03, 8, false);
     const tubeMaterial = new THREE.MeshBasicMaterial({
       color: color,
-      transparent: true,
-      opacity: 0.9,
+      transparent: false,
+      opacity: 1.0,
     });
 
     const arc = new THREE.Mesh(tubeGeometry, tubeMaterial);
     sceneRef.current.add(arc);
     arcsRef.current.push(arc);
 
-    // Glow effect
-    const glowGeo = new THREE.TubeGeometry(curve, 50, 0.015, 8, false);
+    // Glow layer
+    const glowGeo = new THREE.TubeGeometry(curve, 64, 0.05, 8, false);
     const glowMat = new THREE.MeshBasicMaterial({
       color: color,
       transparent: true,
-      opacity: 0.3,
+      opacity: 0.6,
     });
     const glow = new THREE.Mesh(glowGeo, glowMat);
     sceneRef.current.add(glow);
     arcsRef.current.push(glow);
+    
+    console.log('✨ Arc added');
 
-    // Source marker
-    const srcGeo = new THREE.SphereGeometry(0.04, 16, 16);
+    // Source marker - small elegant dot
+    const srcGeo = new THREE.SphereGeometry(0.03, 16, 16);
     const srcMat = new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 1.0 });
     const srcMarker = new THREE.Mesh(srcGeo, srcMat);
     srcMarker.position.copy(start);
+    srcMarker.userData.isPulse = true;
     sceneRef.current.add(srcMarker);
     arcsRef.current.push(srcMarker);
 
     // Source glow
-    const srcGlowGeo = new THREE.SphereGeometry(0.06, 16, 16);
-    const srcGlowMat = new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 0.3 });
+    const srcGlowGeo = new THREE.SphereGeometry(0.05, 16, 16);
+    const srcGlowMat = new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 0.5 });
     const srcGlow = new THREE.Mesh(srcGlowGeo, srcGlowMat);
     srcGlow.position.copy(start);
+    srcGlow.userData.isPulse = true;
     sceneRef.current.add(srcGlow);
     arcsRef.current.push(srcGlow);
 
-    // Destination marker
-    const dstGeo = new THREE.SphereGeometry(0.04, 16, 16);
+    // Destination marker - red dot
+    const dstGeo = new THREE.SphereGeometry(0.035, 16, 16);
     const dstMat = new THREE.MeshBasicMaterial({ color: 0xff0000, transparent: true, opacity: 1.0 });
     const dstMarker = new THREE.Mesh(dstGeo, dstMat);
     dstMarker.position.copy(end);
+    dstMarker.userData.isPulse = true;
     sceneRef.current.add(dstMarker);
     arcsRef.current.push(dstMarker);
 
     // Destination glow
     const dstGlowGeo = new THREE.SphereGeometry(0.06, 16, 16);
-    const dstGlowMat = new THREE.MeshBasicMaterial({ color: 0xff0000, transparent: true, opacity: 0.3 });
+    const dstGlowMat = new THREE.MeshBasicMaterial({ color: 0xff0000, transparent: true, opacity: 0.4 });
     const dstGlow = new THREE.Mesh(dstGlowGeo, dstGlowMat);
     dstGlow.position.copy(end);
+    dstGlow.userData.isPulse = true;
     sceneRef.current.add(dstGlow);
     arcsRef.current.push(dstGlow);
+    
+    console.log('🎯 Markers added');
 
   }, [events]);
 

@@ -6,13 +6,20 @@ dotenv.config();
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/ddos-map';
 
 export async function connectDB() {
+    // Skip MongoDB if explicitly set to empty
+    if (MONGODB_URI === '') {
+        console.log('⚠️  MongoDB not configured - running in memory-only mode');
+        console.log('💡 Tip: Add MONGODB_URI to .env for database persistence\n');
+        return;
+    }
+
     try {
         await mongoose.connect(MONGODB_URI);
         console.log('✅ MongoDB connected successfully');
         console.log(`📦 Database: ${mongoose.connection.name}`);
     } catch (error) {
         console.error('❌ MongoDB connection error:', error.message);
-        console.log('⚠️  Continuing without database persistence...');
+        console.log('⚠️  Continuing without database persistence...\n');
     }
 }
 
