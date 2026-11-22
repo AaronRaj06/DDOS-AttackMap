@@ -12,6 +12,13 @@ function Dashboard() {
   // Connect to WebSocket
   const { isConnected, events } = useWebSocket('ws://localhost:5000/ws');
 
+  // Debug: Log events when they change
+  useEffect(() => {
+    if (events.length > 0) {
+      console.log('📡 Dashboard events:', events.length, 'Latest:', events[events.length - 1]);
+    }
+  }, [events]);
+
   useEffect(() => {
     // Check if user is authenticated
     if (!isAuthenticated()) {
