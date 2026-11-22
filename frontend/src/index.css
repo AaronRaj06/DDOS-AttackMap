@@ -22,12 +22,12 @@
 body {
   margin: 0;
   min-width: 320px;
-  min-height: 100vh;
+  min-height: 100dvh;
 }
 
 #root {
   width: 100%;
-  min-height: 100vh;
+  min-height: 100dvh;
 }
 
 a {
@@ -37,5 +37,10 @@ a {
 }
 
 a:hover {
-  color: #ff0000;
+  color: #ff9b9b;
+}
+
+:focus-visible {
+  outline: 2px solid #36c5f0;
+  outline-offset: 2px;
 }

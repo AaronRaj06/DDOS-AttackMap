@@ -1,109 +1,64 @@
-import axios from 'axios';
-import dotenv from 'dotenv';
+import { findCountry } from './countries.js';
+import { UpstreamError, fetchJson } from './fetchJson.js';
 
-dotenv.config();
+const RADAR_API_BASE = 'https://api.cloudflare.com/client/v4/radar/attacks';
+const SERVICE = 'Cloudflare Radar';
 
-const CLOUDFLARE_TOKEN = process.env.CLOUDFLARE_TOKEN || '';
-const RADAR_API_BASE = 'https://api.cloudflare.com/client/v4/radar';
-
-export class CloudflareRadarClient {
-    constructor(apiToken) {
-        this.apiToken = apiToken;
-        this.axios = axios.create({
-            baseURL: RADAR_API_BASE,
-            headers: {
-                'Authorization': `Bearer ${this.apiToken}`,
-                'Content-Type': 'application/json'
-            },
-            timeout: 10000
-        });
-    }
-
-    /**
-     * Get recent attack layer data
-     * https://developers.cloudflare.com/api/operations/radar-get-attacks-layer3-timeseries
-     */
-    async getAttackTimeseries(options = {}) {
-        try {
-            const params = {
-                dateRange: '1h', // Last hour
-                aggInterval: '15m', // 15 minute intervals
-                ...options
-            };
-
-            const response = await this.axios.get('/attacks/layer3/timeseries', { params });
-
-            if (response.data.success) {
-                return response.data.result;
-            }
-
-            throw new Error('Cloudflare API returned unsuccessful response');
-        } catch (error) {
-            console.error('Cloudflare Radar API error:', error.message);
-            return null;
-        }
-    }
-
-    /**
-     * Get top attack sources by location
-     */
-    async getTopAttackLocations(options = {}) {
-        try {
-            const params = {
-                dateRange: '1h',
-                limit: 10,
-                ...options
-            };
-
-            const response = await this.axios.get('/attacks/layer3/top/locations', { params });
-
-            if (response.data.success) {
-                return response.data.result;
-            }
-
-            return null;
-        } catch (error) {
-            console.error('Cloudflare top locations error:', error.message);
-            return null;
-        }
-    }
-
-    /**
-     * Get attack summary
-     */
-    async getAttackSummary() {
-        try {
-            const response = await this.axios.get('/attacks/layer3/summary', {
-                params: { dateRange: '1h' }
-            });
-
-            if (response.data.success) {
-                return response.data.result;
-            }
-
-            return null;
-        } catch (error) {
-            console.error('Cloudflare summary error:', error.message);
-            return null;
-        }
-    }
-
-    /**
-     * Check if API token is valid
-     */
-    async testConnection() {
-        try {
-            // Simple API call to verify token works
-            const response = await this.axios.get('/attacks/layer3/summary', {
-                params: { dateRange: '1d' }
-            });
-
-            return response.data.success === true;
-        } catch (error) {
-            console.error('Cloudflare connection test failed:', error.message);
-            return false;
-        }
-    }
+export function parsePairs(result, layer) {
+  if (!Array.isArray(result?.top_0)) throw new UpstreamError(`${SERVICE} sent an unexpected ${layer} response`);
+  return result.top_0.flatMap((row) => {
+    const src = findCountry(row?.originCountryAlpha2);
+    // The published layer 3 schema omits the target. Never guess one.
+    const dst = findCountry(row?.targetCountryAlpha2);
+    const share = Number(row?.value);
+    return src && dst && Number.isFinite(share) && share > 0 ? [{ layer, src, dst, share }] : [];
+  });
 }
 
-export default CloudflareRadarClient;
+export function parseVectors(result) {
+  if (!result?.summary_0 || typeof result.summary_0 !== 'object') {
+    throw new UpstreamError(`${SERVICE} sent an unexpected vector response`);
+  }
+  return Object.entries(result.summary_0)
+    .map(([name, value]) => ({ name, share: Number(value) }))
+    .filter(({ share }) => Number.isFinite(share) && share > 0)
+    .sort((a, b) => b.share - a.share)
+    .slice(0, 6);
+}
+
+export class CloudflareRadarClient {
+  constructor(token, { fetch } = {}) {
+    this.token = token;
+    this.fetch = fetch;
+  }
+
+  async get(path, params) {
+    const { body } = await fetchJson(`${RADAR_API_BASE}${path}?${new URLSearchParams(params)}`, {
+      headers: { Authorization: `Bearer ${this.token}` },
+      fetch: this.fetch,
+      service: SERVICE,
+    });
+    if (body?.success !== true) throw new UpstreamError(`${SERVICE} reported a failure`);
+    return body.result;
+  }
+
+  // Each part fails independently, so one broken endpoint does not blank the map.
+  async getTrends() {
+    const common = { dateRange: '1d', format: 'JSON' };
+    const pairs = { ...common, limit: '100' };
+    const requests = {
+      l3: this.get('/layer3/top/attacks', pairs).then((r) => parsePairs(r, 'l3')),
+      // Without this filter layer 7 also counts WAF and bot-management blocks
+      l7: this.get('/layer7/top/attacks', { ...pairs, mitigationProduct: 'DDOS' }).then((r) => parsePairs(r, 'l7')),
+      vectors: this.get('/layer3/summary/VECTOR', common).then(parseVectors),
+    };
+    const settled = await Promise.allSettled(Object.values(requests));
+    const data = {};
+    const errors = [];
+    Object.keys(requests).forEach((part, i) => {
+      if (settled[i].status === 'fulfilled') data[part] = settled[i].value;
+      else errors.push(settled[i].reason);
+    });
+    return { data, errors };
+  }
+}

@@ -3,7 +3,6 @@ node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-package-lock.json
 
 # Build outputs
 dist/
@@ -34,3 +33,9 @@ temp-globe/
 
 # Testing
 coverage/
+
+# Generated data
+backend/.cache/
+backend/data/geo/
+backend/data/training/
+.playwright-mcp/

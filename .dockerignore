@@ -1,0 +1,12 @@
+.git
+.github
+**/node_modules
+**/.env
+**/.env.*
+**/dist
+**/.DS_Store
+backend/.cache
+backend/data/geo
+backend/data/training
+.playwright-mcp
+backend/test
