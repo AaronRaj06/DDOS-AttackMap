@@ -2,18 +2,23 @@ import { CloudflareRadarClient } from './cloudflareClient.js';
 import { AbuseIPDBClient } from './abuseIPDB.js';
 import { demoTrends } from './demoTrends.js';
 import { poll } from './poll.js';
+import { SeriesStore } from './seriesStore.js';
+import { detect, layerStatus, serializeSpike, summarize } from './spikes.js';
 import { readCache, refreshBlacklist, toPublicThreats } from './threatFeed.js';
 
 const RADAR_REFRESH_MS = 15 * 60 * 1000;
 const RADAR_RETRY_MS = 2 * 60 * 1000;
+const SERIES_PARTS = { seriesL3: 'l3', seriesL7: 'l7' };
 
 // Owns everything that comes from upstream sources, and says how trustworthy it is right now.
 export class Intelligence {
-  constructor({ config, geo, model, fetch, onChange = () => {}, log = console }) {
-    Object.assign(this, { config, geo, model, onChange, log });
+  constructor({ config, geo, model, fetch, onChange = () => {}, onSeries = () => {}, log = console }) {
+    Object.assign(this, { config, geo, model, onChange, onSeries, log });
     this.radarClient = config.cloudflareToken ? new CloudflareRadarClient(config.cloudflareToken, { fetch }) : null;
     this.abuseClient = config.abuseKey ? new AbuseIPDBClient(config.abuseKey, { fetch }) : null;
-    this.parts = { l3: [], l7: [], vectors: [] };
+    this.parts = { l3: [], l7: [], vectors: [], targetsL3: [], targetsL7: [], duration: [], bitrate: [], trend: [] };
+    this.series = new SeriesStore();
+    this.detected = { l3: null, l7: null };
     this.routes = this.radarClient ? [] : demoTrends();
     this.threats = { total: 0, flagged: 0, points: [] };
     this.radar = { state: this.radarClient ? 'loading' : 'not_configured', updatedAt: null, error: null };
@@ -21,10 +26,32 @@ export class Intelligence {
     this.stops = [];
   }
 
+  analyze() {
+    for (const layer of Object.keys(this.detected)) this.detected[layer] = detect(this.series.points(layer));
+  }
+
+  // History from MongoDB after a restart, so a spike has a baseline straight away
+  restoreSeries(layer, points) {
+    if (!points.length) return;
+    this.series.add(layer, points);
+    this.analyze();
+    this.onChange();
+  }
+
   async refreshRadar() {
     const { data, errors } = await this.radarClient.getTrends();
-    Object.assign(this.parts, data);
+    let reanalyze = false;
+    for (const [part, value] of Object.entries(data)) {
+      if (part in SERIES_PARTS) {
+        this.series.add(SERIES_PARTS[part], value);
+        this.onSeries(SERIES_PARTS[part], value);
+        reanalyze = true;
+      } else {
+        this.parts[part] = value;
+      }
+    }
     this.routes = [...this.parts.l3, ...this.parts.l7];
+    if (reanalyze) this.analyze();
 
     const updated = Object.keys(data).length > 0;
     if (updated) this.radar.updatedAt = new Date().toISOString();
@@ -79,10 +106,27 @@ export class Intelligence {
     };
   }
 
+  spikeSummary() {
+    return summarize(this.detected);
+  }
+
+  timeline(layer, limit) {
+    const result = this.detected[layer];
+    return {
+      status: layerStatus(result),
+      points: this.series.points(layer).slice(-limit).map(({ t, v }) => ({ t: new Date(t).toISOString(), v })),
+      spikes: (result?.spikes ?? []).map((spike) => serializeSpike(layer, spike)),
+    };
+  }
+
   snapshot() {
     return {
       status: this.status(),
+      spikes: this.spikeSummary(),
       vectors: this.parts.vectors,
+      trend: this.parts.trend,
+      sizes: { duration: this.parts.duration, bitrate: this.parts.bitrate },
+      targets: { l3: this.parts.targetsL3, l7: this.parts.targetsL7 },
       corridors: ['l3', 'l7'].flatMap((layer) =>
         this.routes.filter((route) => route.layer === layer).sort((a, b) => b.share - a.share).slice(0, 5)),
       threats: this.threats,

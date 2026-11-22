@@ -126,3 +126,44 @@ test('live mode replays Radar data end to end', async (t) => {
   assert.ok(events.length);
   assert.ok(events.every((e) => e.source === 'radar' && e.src_country === 'JP' && e.dst_country === 'BR'));
 });
+
+test('timeline: validates its input, and is honest in demo mode', async (t) => {
+  const { get } = await boot(t);
+  for (const query of ['', '?layer=l9', '?layer=', '?layer=l3&layer=l7', '?layer=l3&limit=0', '?layer=l3&limit=1001', '?layer=l3&limit=x']) {
+    assert.equal((await get(`/timeline${query}`)).status, 400, query);
+  }
+  const body = await (await get('/timeline?layer=l3')).json();
+  assert.deepEqual([body.status, body.points, body.spikes], ['unavailable', [], []]);
+});
+
+test('timeline and the WebSocket both report a surge from Radar', async (t) => {
+  const step = 15 * 60 * 1000;
+  const start = Date.now() - 100 * step;
+  const serie = {
+    serie_0: {
+      timestamps: Array.from({ length: 100 }, (_, i) => new Date(start + i * step).toISOString()),
+      values: Array.from({ length: 100 }, (_, i) => String(i >= 97 ? 5000 : 100 + (i % 4))),
+    },
+  };
+  const { host, get } = await boot(t, { CLOUDFLARE_API_TOKEN: 'test' }, {
+    fetch: async (url) => json({ success: true, result: url.includes('/timeseries') ? serie : { top_0: [] } }),
+  });
+  await sleep(1200);
+
+  const body = await (await get('/timeline?layer=l7&limit=5')).json();
+  assert.equal(body.points.length, 5);
+  assert.equal(body.status, 'spike');
+  assert.equal(body.spikes[0].active, true);
+
+  const { first } = await connect(host, { origin: `http://${host}` });
+  assert.equal(first.data.spikes.status, 'spike');
+  assert.deepEqual(first.data.spikes.active.map((s) => s.layer).sort(), ['l3', 'l7']);
+  assert.ok(Array.isArray(first.data.targets.l3) && Array.isArray(first.data.sizes.duration));
+});
+
+test('timeline shares the API rate limit', async (t) => {
+  const { get } = await boot(t);
+  const statuses = [];
+  for (let i = 0; i < 121; i++) statuses.push((await get('/timeline?layer=l3')).status);
+  assert.equal(statuses[120], 429);
+});

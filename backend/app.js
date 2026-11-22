@@ -19,6 +19,7 @@ export async function createService(config, { fetch, log = console } = {}) {
   const intelligence = new Intelligence({
     config, geo, model, fetch, log,
     onChange: () => broadcaster.broadcast({ type: 'state', data: intelligence.snapshot() }),
+    onSeries: (layer, points) => db.saveSeries?.(layer, points),
   });
 
   const app = express();
@@ -26,7 +27,7 @@ export async function createService(config, { fetch, log = console } = {}) {
   app.set('trust proxy', config.trustProxy);
   // upgrade-insecure-requests would break plain-http localhost in Safari
   app.use(helmet({ contentSecurityPolicy: { directives: { upgradeInsecureRequests: null } } }));
-  app.use(['/events', '/stats', '/threats', '/export'], rateLimit({
+  app.use(['/events', '/stats', '/threats', '/export', '/timeline'], rateLimit({
     windowMs: 60_000,
     limit: 120,
     standardHeaders: 'draft-8',
@@ -62,7 +63,7 @@ export async function createService(config, { fetch, log = console } = {}) {
     getSnapshot: () => ({ ...intelligence.snapshot(), events: store.getRecentEvents(50) }),
   });
 
-  let db = { save: null, close: async () => {} };
+  let db = { save: null, saveSeries: null, close: async () => {} };
   const source = config.cloudflareToken ? 'radar' : 'demo';
   const generator = new EventGenerator({
     source,
@@ -80,9 +81,13 @@ export async function createService(config, { fetch, log = console } = {}) {
     async start() {
       db = connectDB(config.mongoUri, {
         log,
-        async onConnect(Event) {
+        async onConnect({ Event, SeriesPoint }) {
           const saved = await Event.find({ source }, { _id: 0 }).sort({ ts: -1 }).limit(store.maxSize).lean();
           store.restore(saved.reverse().map((event) => ({ ...event, ts: event.ts.toISOString() })));
+          for (const layer of ['l3', 'l7']) {
+            const points = await SeriesPoint.find({ layer }, { _id: 0, t: 1, v: 1 }).sort({ t: -1 }).limit(300).lean();
+            intelligence.restoreSeries(layer, points.map(({ t, v }) => ({ t: t.getTime(), v })));
+          }
         },
       });
       await intelligence.start();

@@ -14,7 +14,9 @@ It runs without any API keys in a clearly labeled demo mode.
 | On screen | Source | What it means |
 |---|---|---|
 | Arcs and route shares | Cloudflare Radar, last 24 hours, refreshed every 15 minutes | Samples of country-level trends, weighted by share. An arc is not one live attack. |
-| Attack vectors | Cloudflare Radar | Share of network-layer attacks by technique. |
+| Attack vectors | Cloudflare Radar | Share of network-layer attacks by technique, and how each share moved against the week before. |
+| Spike status and timeline | Cloudflare Radar timeseries, every 15 minutes | A statistical estimate from the last 2 to 3 days of traffic. It is not a Cloudflare alert, and Radar data lags by up to about 15 minutes. |
+| Top targets, attack duration and bitrate | Cloudflare Radar, last 24 hours | Separate lists. Layer 3 has no origin-to-target pairs, so they are never joined. |
 | Dots | AbuseIPDB blacklist, refreshed every 6 hours | IPs reported for any kind of abuse, shown as /24 or /48 networks. |
 | Red dots | The classifier | IPs the model ranks as likely DoS sources. Only shown after you train it. |
 | Demo mode | Built-in illustrative routes | Made up. Always labeled as demo. |
@@ -90,6 +92,25 @@ Set these in `backend/.env`.
 
 If you change `PORT`, start Vite with `BACKEND_URL=http://127.0.0.1:<port> npm run dev`.
 
+## Spike detection
+
+Radar's layer 3 and layer 7 timeseries (15-minute buckets, 2 days per request) are kept in memory
+for 3 days, and in MongoDB for 7 days if it is configured.
+
+- **Score:** a robust z-score, using the median and MAD of the previous 24 hours, on a log scale.
+  Traffic noise is multiplicative, and on raw values ordinary bursts looked like attacks.
+- **Enter:** 2 points in a row at z >= 3.5, or 1 point at z >= 6. **Exit:** z < 2, so a noisy plateau
+  stays one spike. Points inside a spike are kept out of the baseline.
+- **Status:** `spike` while one is running, `elevated` while the latest point is at z >= 2, `normal`
+  otherwise, and `unavailable` with fewer than 24 baseline points or without a Radar token.
+- **Gaps** longer than 3 normal intervals end a running spike and are never filled in.
+
+Measured on simulated 3-day series (`test/spikes.test.js`): 0 false alarms in 900 series of
+gaussian, seasonal and skewed noise, and a 3x surge lasting 8 points was caught in 100% of runs.
+The price of that silence is that a 2x burst on top of a strong daily cycle is caught about 80% of
+the time. Real traffic may behave differently, so treat the thresholds in `services/spikes.js` as
+starting values.
+
 ## The classifier
 
 **Question:** will this blacklisted IP have a "DDoS Attack" report (AbuseIPDB category 4)?
@@ -123,10 +144,11 @@ reports, so a missing DDoS report does not prove an IP is innocent.
 | `GET /events?limit=100` | Recently replayed events |
 | `GET /stats` | Counts over the event buffer, plus source status |
 | `GET /threats?limit=100` | Masked threat networks with optional scores |
+| `GET /timeline?layer=l3&limit=100` | Radar series for `l3` or `l7`, with its detected spikes |
 | `GET /export?limit=100` | Events as CSV |
-| `WS /ws` | `snapshot` on connect, then `event` and `state` messages |
+| `WS /ws` | `snapshot` on connect, then `event` and `state` messages. Both carry the spike status and the active spikes. |
 
-`limit` accepts 1 to 1000. Data endpoints allow 120 requests a minute per IP.
+`limit` accepts 1 to 1000. Data endpoints allow 120 requests a minute per IP. Radar is called 10 times every 15 minutes.
 
 ## Tests
 

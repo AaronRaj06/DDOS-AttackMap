@@ -56,5 +56,13 @@ export function createEventsRouter({ store, intelligence }) {
     res.send(csv.getHeaderString() + csv.stringifyRecords(store.getRecentEvents(res.locals.limit)));
   });
 
+  router.get('/timeline', withLimit, (req, res) => {
+    const { layer } = req.query;
+    if (layer !== 'l3' && layer !== 'l7') {
+      return res.status(400).json({ success: false, error: 'layer must be l3 or l7' });
+    }
+    return res.json({ success: true, layer, ...intelligence.timeline(layer, res.locals.limit) });
+  });
+
   return router;
 }
