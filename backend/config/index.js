@@ -34,6 +34,12 @@ function webhookUrl(raw) {
   return url.href;
 }
 
+function metricsToken(raw) {
+  if (!raw) return '';
+  if (raw.length < 16) throw new Error('METRICS_TOKEN must be at least 16 characters');
+  return raw;
+}
+
 export function loadConfig(env = process.env) {
   return {
     port: integer(env, 'PORT', 5050, 0, 65535),
@@ -43,6 +49,7 @@ export function loadConfig(env = process.env) {
     cloudflareToken: env.CLOUDFLARE_API_TOKEN?.trim() ?? '',
     abuseKey: env.ABUSEIPDB_KEY?.trim() ?? '',
     mongoUri: env.MONGODB_URI?.trim() ?? '',
+    metricsToken: metricsToken(env.METRICS_TOKEN?.trim()),
     alertWebhookUrl: webhookUrl(env.ALERT_WEBHOOK_URL?.trim()),
     paths: {
       blacklist: path('../.cache/blacklist.json'),

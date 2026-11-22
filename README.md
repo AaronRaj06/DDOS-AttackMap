@@ -86,6 +86,7 @@ Set these in `backend/.env`.
 | `CLOUDFLARE_API_TOKEN` | empty | Custom token with only `Account > Radar > Read`. Never use a Global API Key. |
 | `ABUSEIPDB_KEY` | empty | Enables threat dots and training. |
 | `ALERT_WEBHOOK_URL` | empty | Slack-compatible `https` webhook told when a spike starts. Checked at startup. Treat it as a secret. |
+| `METRICS_TOKEN` | empty | Turns on `GET /metrics` for Prometheus, behind `Authorization: Bearer <token>`. At least 16 characters. |
 | `MONGODB_URI` | empty | Keeps replayed events for 3 days and restores them on restart. |
 | `PORT` | `5050` | 5000 is taken by AirPlay on macOS. |
 | `HOST` | `127.0.0.1` | Docker sets `0.0.0.0`. |
@@ -204,11 +205,34 @@ reports, so a missing DDoS report does not prove an IP is innocent.
 | `GET /threats?limit=100` | Masked threat networks with optional scores |
 | `GET /threats/{network}` | Why a `/24` or `/48` is flagged: its top 3 factors and a 404 if it is not listed |
 | `GET /lookup?ip=8.8.8.8` | Offline location, ASN and organization of one public IP, and the model score if it is active. 30 a minute per client |
+| `GET /metrics` | Prometheus text format. Only exists when `METRICS_TOKEN` is set |
 | `GET /timeline?layer=l3&limit=100` | Radar series for `l3` or `l7`, with its detected spikes |
 | `GET /export?limit=100` | Events as CSV |
 | `WS /ws` | `snapshot` on connect, then `event` and `state` messages. Both carry the spike status and the active spikes. |
 
 `limit` accepts 1 to 1000. Data endpoints allow 120 requests a minute per IP. Radar is called 10 times every 15 minutes.
+
+## Monitoring
+
+With `METRICS_TOKEN` set, `GET /metrics` serves Prometheus text format (hand-written, no dependency)
+behind a bearer token, compared in constant time and limited to 60 requests a minute. Without the
+token the route does not exist.
+
+```yaml
+scrape_configs:
+  - job_name: dosmap
+    authorization: { credentials: <METRICS_TOKEN> }
+    static_configs: [{ targets: ['127.0.0.1:5050'] }]
+```
+
+| Metric | Use it to alert on |
+|---|---|
+| `dosmap_radar_last_success_timestamp_seconds` | `time() - x > 3600`: Radar data is stale |
+| `dosmap_abuseipdb_last_success_timestamp_seconds` | the blacklist is older than a day |
+| `dosmap_source_state{source,state}` | `state="error"` for either source |
+| `dosmap_active_spikes{layer}` | a spike is running |
+| `dosmap_websocket_clients`, `dosmap_events_replayed_total` | traffic and replay health |
+| `dosmap_uptime_seconds`, `dosmap_process_resident_memory_bytes`, `dosmap_process_heap_used_bytes` | restarts and memory growth |
 
 ## Tests
 

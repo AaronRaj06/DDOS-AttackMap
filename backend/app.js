@@ -8,12 +8,14 @@ import { createEventsRouter } from './routes/events.js';
 import { EventGenerator } from './services/eventGenerator.js';
 import { EventStore } from './services/eventStore.js';
 import { Notifier } from './services/alerts.js';
+import { bearerMatches, renderMetrics } from './services/metrics.js';
 import { openGeoIP } from './services/geoIP.js';
 import { Intelligence } from './services/intelligence.js';
 import { EventBroadcaster } from './websocket/eventBroadcaster.js';
 
 export async function createService(config, { fetch, log = console, geo: geoOverride, model: modelOverride } = {}) {
   const store = new EventStore();
+  let replayed = 0;
   const geo = geoOverride ?? await openGeoIP(config.paths.geo, { log });
   const model = modelOverride ?? loadModel(config.paths.model, { log });
   let broadcaster;
@@ -57,6 +59,31 @@ export async function createService(config, { fetch, log = console, geo: geoOver
       ...intelligence.status(),
     });
   });
+  // Off unless METRICS_TOKEN is set. Rejected attempts count against the limit too.
+  if (config.metricsToken) {
+    app.get('/metrics', rateLimit({
+      windowMs: 60_000,
+      limit: 60,
+      standardHeaders: 'draft-8',
+      legacyHeaders: false,
+      message: { success: false, error: 'Too many requests' },
+    }), (req, res) => {
+      if (!bearerMatches(req.headers.authorization, config.metricsToken)) {
+        res.set('WWW-Authenticate', 'Bearer');
+        return res.status(401).json({ success: false, error: 'Unauthorized' });
+      }
+      const { radar, abuse } = intelligence.status();
+      return res.type('text/plain; version=0.0.4; charset=utf-8').send(renderMetrics({
+        radar, abuse,
+        clients: broadcaster.getClientCount(),
+        events: replayed,
+        spikes: intelligence.spikeSummary().active,
+        uptime: process.uptime(),
+        memory: process.memoryUsage(),
+      }));
+    });
+  }
+
   app.use(createEventsRouter({ store, intelligence }));
   app.get(['/login', '/signup', '/dashboard'], (req, res) => res.redirect('/'));
   app.use(express.static(config.paths.frontend));
@@ -82,6 +109,7 @@ export async function createService(config, { fetch, log = console, geo: geoOver
     source,
     getRoutes: () => intelligence.routes,
     onEvent(event) {
+      replayed++;
       store.addEvent(event);
       broadcaster.broadcast({ type: 'event', data: event });
       db.save?.(event);

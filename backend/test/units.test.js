@@ -12,7 +12,7 @@ import { silent, tempDir } from './helpers.js';
 
 test('.env.example holds no secrets', () => {
   const text = readFileSync(new URL('../.env.example', import.meta.url), 'utf8');
-  for (const name of ['CLOUDFLARE_API_TOKEN', 'ABUSEIPDB_KEY', 'MONGODB_URI', 'ALERT_WEBHOOK_URL']) {
+  for (const name of ['CLOUDFLARE_API_TOKEN', 'ABUSEIPDB_KEY', 'MONGODB_URI', 'ALERT_WEBHOOK_URL', 'METRICS_TOKEN']) {
     assert.match(text, new RegExp(`^${name}=$`, 'm'));
   }
 });
