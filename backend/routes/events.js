@@ -1,7 +1,8 @@
+import { isIP } from 'node:net';
 import express from 'express';
 import { createObjectCsvStringifier } from 'csv-writer';
 
-import { networkOf } from '../services/ip.js';
+import { isPublicIP, networkOf } from '../services/ip.js';
 
 const MAX_LIMIT = 1000;
 const NETWORK = /^(?:(\d{1,3}\.\d{1,3}\.\d{1,3})\.0\/24|([0-9a-f]{1,4}:[0-9a-f]{1,4}:[0-9a-f]{1,4})::\/48)$/;
@@ -80,6 +81,17 @@ export function createEventsRouter({ store, intelligence }) {
     });
     res.type('text/csv').attachment(`dos_events_${Date.now()}.csv`);
     res.send(csv.getHeaderString() + csv.stringifyRecords(store.getRecentEvents(res.locals.limit)));
+  });
+
+  router.get('/lookup', (req, res) => {
+    const { ip } = req.query;
+    if (typeof ip !== 'string' || ip.length > 45 || ip.includes('%') || !isIP(ip)) {
+      return res.status(400).json({ success: false, error: 'ip must be a valid IPv4 or IPv6 address' });
+    }
+    if (!isPublicIP(ip)) {
+      return res.status(400).json({ success: false, error: 'That is a private, reserved or loopback address. Only public IPs can be looked up.' });
+    }
+    return res.json({ success: true, ...intelligence.lookup(ip) });
   });
 
   router.get('/timeline', withLimit, (req, res) => {

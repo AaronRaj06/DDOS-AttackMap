@@ -19,6 +19,7 @@ It runs without any API keys in a clearly labeled demo mode.
 | Top targets, attack duration and bitrate | Cloudflare Radar, last 24 hours | Separate lists. Layer 3 has no origin-to-target pairs, so they are never joined. |
 | Dots | AbuseIPDB blacklist, refreshed every 6 hours | IPs reported for any kind of abuse, shown as /24 or /48 networks. |
 | Red dots | The classifier | IPs the model ranks as likely DoS sources. Only shown after you train it. `GET /threats/{network}` says which factors pushed a network up or down. |
+| IP lookup | DB-IP Lite databases on disk | Approximate, often only city-level, and wrong for mobile or proxied addresses. Nothing is sent to a third party. |
 | Demo mode | Built-in illustrative routes | Made up. Always labeled as demo. |
 
 Network-layer origins are the Cloudflare data center country that received the traffic, because
@@ -135,6 +136,20 @@ began. It never contains an IP, a key or the webhook itself.
 - **Restarts:** what was announced and when is kept in `backend/.cache/alerts.json`, so a crash loop
   cannot repeat an alert.
 
+## IP lookup
+
+`GET /lookup?ip=` answers entirely from the local databases and the cached blacklist, so it never
+spends AbuseIPDB quota. Private, loopback, link-local, documentation, multicast and other reserved
+addresses are refused with a clear message, as is anything that is not exactly one IP.
+
+- **Membership is network-wide.** `networkListed` says whether the `/24` or `/48` holds a listed IP,
+  never whether this exact address does. A listed address and its unlisted neighbour get identical
+  answers, and a test asserts it. An exact answer would let anyone rebuild the blacklist by probing,
+  which defeats the masking and probably AbuseIPDB's terms.
+- **The score** uses the address's own network, country and ASN. The report-age feature comes from
+  the listed network, or, for an unlisted one, is set to the training average and marked
+  `basis: neutral_age`. Treat that score as a guess about the network type, not about the address.
+
 ## The classifier
 
 **Question:** will this blacklisted IP have a "DDoS Attack" report (AbuseIPDB category 4)?
@@ -188,6 +203,7 @@ reports, so a missing DDoS report does not prove an IP is innocent.
 | `GET /stats` | Counts over the event buffer, plus source status |
 | `GET /threats?limit=100` | Masked threat networks with optional scores |
 | `GET /threats/{network}` | Why a `/24` or `/48` is flagged: its top 3 factors and a 404 if it is not listed |
+| `GET /lookup?ip=8.8.8.8` | Offline location, ASN and organization of one public IP, and the model score if it is active. 30 a minute per client |
 | `GET /timeline?layer=l3&limit=100` | Radar series for `l3` or `l7`, with its detected spikes |
 | `GET /export?limit=100` | Events as CSV |
 | `WS /ws` | `snapshot` on connect, then `event` and `state` messages. Both carry the spike status and the active spikes. |

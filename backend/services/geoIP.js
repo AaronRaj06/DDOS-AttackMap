@@ -40,6 +40,7 @@ export async function openGeoIP(dir, { log = console } = {}) {
         lat: precise ? latitude : fallback?.lat ?? null,
         lon: precise ? longitude : fallback?.lon ?? null,
         precise,
+        city: place?.city?.names?.en ?? null,
         asn: network?.autonomous_system_number ?? null,
         org: network?.autonomous_system_organization ?? '',
       };

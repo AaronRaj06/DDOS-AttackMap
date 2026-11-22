@@ -1,7 +1,9 @@
 import { CloudflareRadarClient } from './cloudflareClient.js';
 import { AbuseIPDBClient } from './abuseIPDB.js';
 import { demoTrends } from './demoTrends.js';
-import { explain } from '../ml/classifier.js';
+import { explain, neutralAgeHours, score } from '../ml/classifier.js';
+import { findCountry } from './countries.js';
+import { networkOf } from './ip.js';
 import { poll } from './poll.js';
 import { SeriesStore } from './seriesStore.js';
 import { detect, layerStatus, serializeSpike, summarize } from './spikes.js';
@@ -115,6 +117,36 @@ export class Intelligence {
       threshold: model.threshold,
       samples: model.metrics.samples,
       metrics: model.metrics,
+    };
+  }
+
+  // Offline: geolocation, ASN and the model. Membership is only ever reported for the whole
+  // /24 or /48, because an exact-IP answer would let anyone rebuild the blacklist by probing.
+  lookup(ip) {
+    const place = this.geo.locate(ip, null);
+    const network = networkOf(ip);
+    const listed = this.networkIndex.get(network);
+    const active = this.model && this.geo.hasASN ? this.model : null;
+    const classifier = { state: this.classifierStatus().state, score: null, flagged: null, threshold: null, basis: null };
+    if (active) {
+      // An unlisted IP has no report age, so that one feature is set to the training average
+      const row = { ip, country: place.country, asn: place.asn, org: place.org, ageHours: listed ? listed.row.ageHours : neutralAgeHours(active) };
+      const value = score(active, row);
+      Object.assign(classifier, { score: value, flagged: value >= active.threshold, threshold: active.threshold, basis: listed ? 'listed_network' : 'neutral_age' });
+    }
+    return {
+      ip,
+      network,
+      country: place.country,
+      countryName: findCountry(place.country)?.name ?? null,
+      city: place.city ?? null,
+      lat: place.lat === null ? null : Number(place.lat.toFixed(2)),
+      lon: place.lon === null ? null : Number(place.lon.toFixed(2)),
+      precise: place.precise,
+      asn: place.asn,
+      org: place.org,
+      networkListed: Boolean(listed),
+      classifier,
     };
   }
 

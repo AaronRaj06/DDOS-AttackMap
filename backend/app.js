@@ -39,6 +39,15 @@ export async function createService(config, { fetch, log = console, geo: geoOver
     message: { success: false, error: 'Too many requests' },
   }));
 
+  // Tighter than the rest: a lookup is the one call that takes an address from the caller
+  app.use('/lookup', rateLimit({
+    windowMs: 60_000,
+    limit: 30,
+    standardHeaders: 'draft-8',
+    legacyHeaders: false,
+    message: { success: false, error: 'Too many requests' },
+  }));
+
   app.get('/health', (req, res) => {
     res.json({
       status: 'ok',
