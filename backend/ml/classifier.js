@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { networkOf } from '../services/ip.js';
-import { buildVocabulary, featureNames, featurize } from './features.js';
+import { buildVocabulary, featureLabel, featureNames, featurize } from './features.js';
 
 const MIN_ROWS = 500;
 const MIN_PER_CLASS = { train: 30, validation: 10, test: 10 };
@@ -75,6 +75,29 @@ function fit(X, y) {
 export function score(model, row) {
   const x = featurize(row, model.vocabulary).map((value, j) => (value - model.mean[j]) / model.std[j]);
   return sigmoid(dot(x, model.weights) + model.bias);
+}
+
+// Each feature adds weight x standardized value to the logit, so the parts are exact:
+// sigmoid(bias + every contribution) is the score. `other` is what the hidden ones add up to.
+export function explain(model, row, top = 3) {
+  const x = featurize(row, model.vocabulary);
+  const parts = model.features.map((feature, j) => ({
+    feature,
+    label: featureLabel(feature),
+    contribution: (model.weights[j] * (x[j] - model.mean[j])) / model.std[j],
+  }));
+  const ranked = [...parts].sort((a, b) => Math.abs(b.contribution) - Math.abs(a.contribution));
+  return {
+    score: sigmoid(model.bias + parts.reduce((sum, part) => sum + part.contribution, 0)),
+    bias: model.bias,
+    factors: ranked.slice(0, top).map((part) => ({ ...part, direction: part.contribution >= 0 ? 'raises' : 'lowers' })),
+    other: ranked.slice(top).reduce((sum, part) => sum + part.contribution, 0),
+  };
+}
+
+// The report-age feature the model would see on average, for IPs that have no report
+export function neutralAgeHours(model) {
+  return Math.expm1(model.mean[model.features.indexOf('log_age_hours')]);
 }
 
 // Threshold is picked on validation by F0.5 (precision counts double); test is only reported.

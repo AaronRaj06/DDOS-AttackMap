@@ -16,7 +16,7 @@ const SOURCE = {
   loading: 'Loading',
   not_configured: 'No API key',
 };
-const CLASSIFIER = { active: 'Active', untrained: 'Not trained', needs_geo_database: 'Needs ASN database' };
+const CLASSIFIER = { active: 'Active', stale: 'Active, over 30 days old', untrained: 'Not trained', needs_geo_database: 'Needs ASN database' };
 
 function modeNotice({ mode, radar }) {
   if (mode === 'demo') {
@@ -98,7 +98,7 @@ export default function Dashboard() {
             </div>
             <div>
               <dt>Likely DoS</dt>
-              <dd>{status?.classifier.state === 'active' ? threats.flagged.toLocaleString() : '–'}</dd>
+              <dd>{['active', 'stale'].includes(status?.classifier.state) ? threats.flagged.toLocaleString() : '–'}</dd>
             </div>
           </dl>
 

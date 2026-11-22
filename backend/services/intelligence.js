@@ -1,6 +1,7 @@
 import { CloudflareRadarClient } from './cloudflareClient.js';
 import { AbuseIPDBClient } from './abuseIPDB.js';
 import { demoTrends } from './demoTrends.js';
+import { explain } from '../ml/classifier.js';
 import { poll } from './poll.js';
 import { SeriesStore } from './seriesStore.js';
 import { detect, layerStatus, serializeSpike, summarize } from './spikes.js';
@@ -8,12 +9,13 @@ import { readCache, refreshBlacklist, toPublicThreats } from './threatFeed.js';
 
 const RADAR_REFRESH_MS = 15 * 60 * 1000;
 const RADAR_RETRY_MS = 2 * 60 * 1000;
+const STALE_MS = 30 * 24 * 3600_000;
 const SERIES_PARTS = { seriesL3: 'l3', seriesL7: 'l7' };
 
 // Owns everything that comes from upstream sources, and says how trustworthy it is right now.
 export class Intelligence {
-  constructor({ config, geo, model, fetch, onChange = () => {}, onSeries = () => {}, log = console }) {
-    Object.assign(this, { config, geo, model, onChange, onSeries, log });
+  constructor({ config, geo, model, fetch, onChange = () => {}, onSeries = () => {}, now = Date.now, log = console }) {
+    Object.assign(this, { config, geo, model, onChange, onSeries, now, log });
     this.radarClient = config.cloudflareToken ? new CloudflareRadarClient(config.cloudflareToken, { fetch }) : null;
     this.abuseClient = config.abuseKey ? new AbuseIPDBClient(config.abuseKey, { fetch }) : null;
     this.parts = { l3: [], l7: [], vectors: [], targetsL3: [], targetsL7: [], duration: [], bitrate: [], trend: [] };
@@ -21,6 +23,7 @@ export class Intelligence {
     this.detected = { l3: null, l7: null };
     this.routes = this.radarClient ? [] : demoTrends();
     this.threats = { total: 0, flagged: 0, points: [] };
+    this.networkIndex = new Map();
     this.radar = { state: this.radarClient ? 'loading' : 'not_configured', updatedAt: null, error: null };
     this.abuse = { state: this.abuseClient ? 'loading' : 'not_configured', updatedAt: null, error: null };
     this.stops = [];
@@ -66,7 +69,9 @@ export class Intelligence {
   }
 
   showBlacklist(cache) {
-    this.threats = toPublicThreats(cache, this.geo, this.model);
+    const { index, ...threats } = toPublicThreats(cache, this.geo, this.model);
+    this.threats = threats;
+    this.networkIndex = index;
     this.abuse.updatedAt = cache.generatedAt ?? null;
     this.abuse.error = cache.error ?? null;
     if (cache.error) this.abuse.state = cache.entries.length ? 'stale' : 'error';
@@ -93,8 +98,44 @@ export class Intelligence {
     for (const stop of this.stops) stop();
   }
 
+  // Which model is scoring, how it was tested, and whether to trust it
+  classifierStatus() {
+    const { model } = this;
+    if (!model) return { state: 'untrained', metrics: null };
+    const age = this.now() - Date.parse(model.trainedAt);
+    let state = 'active';
+    if (!this.geo.hasASN) state = 'needs_geo_database';
+    else if (!(age <= STALE_MS)) state = 'stale'; // also true for an unreadable date
+    return {
+      state,
+      trainedAt: model.trainedAt,
+      ageDays: Number.isFinite(age) ? Math.max(0, Math.floor(age / 86_400_000)) : null,
+      threshold: model.threshold,
+      samples: model.metrics.samples,
+      metrics: model.metrics,
+    };
+  }
+
+  // Why one network is flagged. Null when the network is not in the cached blacklist.
+  explainNetwork(network) {
+    const found = this.networkIndex.get(network);
+    if (!found) return null;
+    const active = this.model && this.geo.hasASN ? this.model : null;
+    return {
+      network,
+      country: found.row.country,
+      asn: found.row.asn,
+      org: found.row.org,
+      precise: found.precise,
+      reportedAt: found.reportedAt,
+      dosScore: found.dosScore,
+      flagged: found.flagged,
+      threshold: active?.threshold ?? null,
+      explanation: active ? explain(active, found.row) : null,
+    };
+  }
+
   status() {
-    const classifier = !this.model ? 'untrained' : this.geo.hasASN ? 'active' : 'needs_geo_database';
     let mode = 'demo';
     if (this.radarClient) mode = this.routes.length ? 'live' : 'unavailable';
     return {
@@ -102,7 +143,7 @@ export class Intelligence {
       radar: { ...this.radar },
       abuse: { ...this.abuse },
       geo: this.geo.hasCity ? 'city' : 'country',
-      classifier: { state: classifier, metrics: this.model?.metrics ?? null },
+      classifier: this.classifierStatus(),
     };
   }
 

@@ -2,30 +2,10 @@ import assert from 'node:assert/strict';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { averagePrecision, evaluate, loadModel, score, splitOf, train } from '../ml/classifier.js';
+import { averagePrecision, evaluate, explain, loadModel, neutralAgeHours, score, splitOf, train } from '../ml/classifier.js';
 import { toPublicThreats } from '../services/threatFeed.js';
+import { dataset } from './fixtures.js';
 import { noGeo, silent, tempDir } from './helpers.js';
-
-function seeded(seed = 7) {
-  let state = seed;
-  return () => ((state = (state * 16807) % 2147483647) / 2147483647);
-}
-
-// Synthetic data, only to prove the learner works. Says nothing about real-world accuracy.
-function dataset({ signal = true, size = 2000 } = {}) {
-  const random = seeded();
-  return Array.from({ length: size }, (_, i) => {
-    const hosting = random() < 0.3;
-    return {
-      ip: `${20 + (i % 150)}.${i >> 8}.${i & 255}.9`,
-      country: ['US', 'DE', 'BR'][Math.floor(random() * 3)],
-      asn: 100 + Math.floor(random() * 10),
-      org: hosting ? 'Example Hosting' : 'Example Net',
-      ageHours: random() * 24,
-      ddos: random() < (!signal ? 0.25 : hosting ? 0.85 : 0.06),
-    };
-  });
-}
 
 test('learns a planted signal on held-out networks', () => {
   const model = train(dataset());
@@ -96,4 +76,55 @@ test('flagged IPs do not crowd every other dot off the map', () => {
 
   const allFlagged = toPublicThreats({ entries: group(10, 1500) }, geo, model);
   assert.equal(allFlagged.points.length, 1000);
+});
+
+const sigmoid = (z) => 1 / (1 + Math.exp(-z));
+const rows = () => [
+  ...dataset().slice(0, 40),
+  // things the model has never seen: a rare country, a missing ASN, an IPv6 address
+  { ip: '2001:4860:4860::8888', country: 'NZ', asn: null, org: '', ageHours: 3 },
+  { ip: '9.9.9.9', country: 'US', asn: 999999, org: 'Example Hosting', ageHours: 5000 },
+];
+
+test('an explanation adds up exactly: bias plus every contribution is the score', () => {
+  const model = train(dataset());
+  for (const row of rows()) {
+    const e = explain(model, row);
+    const total = e.bias + e.factors.reduce((sum, f) => sum + f.contribution, 0) + e.other;
+    assert.ok(Math.abs(sigmoid(total) - score(model, row)) < 1e-12, `${row.ip}: ${sigmoid(total)} vs ${score(model, row)}`);
+    assert.ok(Math.abs(e.score - score(model, row)) < 1e-12);
+  }
+});
+
+test('an explanation lists the 3 strongest factors, biggest first, with human labels', () => {
+  const model = train(dataset());
+  const hosting = { ip: '30.1.1.1', country: 'US', asn: 101, org: 'Example Hosting', ageHours: 6 };
+  const { factors } = explain(model, hosting);
+  assert.equal(factors.length, 3);
+  const sizes = factors.map((f) => Math.abs(f.contribution));
+  assert.deepEqual(sizes, [...sizes].sort((a, b) => b - a));
+  // the planted signal is "hosting networks send DoS traffic"
+  assert.equal(factors[0].feature, 'hosting');
+  assert.equal(factors[0].direction, 'raises');
+  assert.equal(factors[0].label, 'Network name suggests hosting or cloud');
+  for (const f of factors) assert.ok(/[a-z]{3} [a-z]/i.test(f.label) || /^Network AS\d+$/.test(f.label), f.label);
+
+  const home = explain(model, { ...hosting, org: 'Example Net' }).factors[0];
+  assert.deepEqual([home.feature, home.direction], ['hosting', 'lowers']);
+});
+
+test('country and network labels use names, not codes', () => {
+  const model = train(dataset());
+  const labels = explain(model, rows()[0], 200).factors.map((f) => f.label);
+  assert.ok(labels.some((label) => /^Located in (United States|Germany|Brazil)$/.test(label)), labels.join('|'));
+  assert.ok(labels.some((label) => /^Network AS1\d\d$/.test(label)));
+});
+
+test('the neutral report age is the average the model saw', () => {
+  const model = train(dataset());
+  const hours = neutralAgeHours(model);
+  assert.ok(hours > 0 && hours < 24);
+  const row = { ip: '9.9.9.9', country: 'US', asn: 101, org: 'Example Net' };
+  const neutral = explain(model, { ...row, ageHours: hours }).factors.find((f) => f.feature === 'log_age_hours');
+  assert.ok(!neutral || Math.abs(neutral.contribution) < 1e-9);
 });

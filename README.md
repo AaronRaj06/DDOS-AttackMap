@@ -18,7 +18,7 @@ It runs without any API keys in a clearly labeled demo mode.
 | Spike status and timeline | Cloudflare Radar timeseries, every 15 minutes | A statistical estimate from the last 2 to 3 days of traffic. It is not a Cloudflare alert, and Radar data lags by up to about 15 minutes. |
 | Top targets, attack duration and bitrate | Cloudflare Radar, last 24 hours | Separate lists. Layer 3 has no origin-to-target pairs, so they are never joined. |
 | Dots | AbuseIPDB blacklist, refreshed every 6 hours | IPs reported for any kind of abuse, shown as /24 or /48 networks. |
-| Red dots | The classifier | IPs the model ranks as likely DoS sources. Only shown after you train it. |
+| Red dots | The classifier | IPs the model ranks as likely DoS sources. Only shown after you train it. `GET /threats/{network}` says which factors pushed a network up or down. |
 | Demo mode | Built-in illustrative routes | Made up. Always labeled as demo. |
 
 Network-layer origins are the Cloudflare data center country that received the traffic, because
@@ -105,11 +105,17 @@ for 3 days, and in MongoDB for 7 days if it is configured.
   otherwise, and `unavailable` with fewer than 24 baseline points or without a Radar token.
 - **Gaps** longer than 3 normal intervals end a running spike and are never filled in.
 
-Measured on simulated 3-day series (`test/spikes.test.js`): 0 false alarms in 900 series of
-gaussian, seasonal and skewed noise, and a 3x surge lasting 8 points was caught in 100% of runs.
-The price of that silence is that a 2x burst on top of a strong daily cycle is caught about 80% of
-the time. Real traffic may behave differently, so treat the thresholds in `services/spikes.js` as
-starting values.
+Measured on simulated series, not real attacks (`npm run spikes:simulate`, 300 series per row):
+
+| Noise | Series with a false alarm | 3x surge for 2 h found | 2x surge for 90 min found |
+|---|---|---|---|
+| gaussian, 15% | 0 | 100% | 96% |
+| daily cycle of 25% plus 10% noise | 0 | 100% | 60% |
+| skewed (log-normal, sigma 0.3) | 0 | 75% | 10% |
+
+Quiet series stay quiet, but on bursty traffic the detector misses moderate surges, because bursts
+that size are ordinary there. Real Radar traffic may behave differently, so treat the thresholds in
+`services/spikes.js` as starting values.
 
 ## The classifier
 
@@ -132,6 +138,25 @@ npm run ml:collect     # up to 950 labels a run. Run it once a day for a few day
 npm run ml:train       # prints held-out metrics and writes ml/model.json
 ```
 
+### Why a network is flagged
+
+`GET /threats/203.0.113.0%2F24` (or `/threats/203.0.113.0/24`) returns the 3 factors that moved the
+score most, each as weight x standardized value, and what the rest add up to. It is exact:
+`sigmoid(bias + the three factors + other)` is the score, and a test asserts it. A factor raises or
+lowers the score, so "Network name suggests hosting or cloud: raises" is a reason, not a verdict.
+When two listed IPs share a network, the higher-scoring one speaks for it. Only the canonical
+`a.b.c.0/24` and `x:y:z::/48` forms are accepted, and unknown networks are a 404.
+
+### Model card and retraining
+
+`/health` reports the classifier's `trainedAt`, `ageDays`, sample counts, threshold and held-out
+precision, recall, F1 and average precision next to the positive rate it should beat. The state
+becomes `stale` after 30 days. A stale model keeps scoring, so the dashboard still works, but
+treat its flags with suspicion. Nothing retrains automatically.
+
+Retrain about monthly. Each `ml:collect` run spends up to 950 of the 1,000 daily `/check` calls,
+so a 2,000-label dataset takes 2 to 3 days of runs.
+
 No trained model or accuracy figure ships with this repository. Run the steps above and quote the
 numbers you get. Scores rank IPs and are not calibrated probabilities. Labels are crowd-sourced
 reports, so a missing DDoS report does not prove an IP is innocent.
@@ -140,10 +165,11 @@ reports, so a missing DDoS report does not prove an IP is innocent.
 
 | Endpoint | Returns |
 |---|---|
-| `GET /health` | Liveness, data mode and the state of each source |
+| `GET /health` | Liveness, data mode, the state of each source and the classifier's model card |
 | `GET /events?limit=100` | Recently replayed events |
 | `GET /stats` | Counts over the event buffer, plus source status |
 | `GET /threats?limit=100` | Masked threat networks with optional scores |
+| `GET /threats/{network}` | Why a `/24` or `/48` is flagged: its top 3 factors and a 404 if it is not listed |
 | `GET /timeline?layer=l3&limit=100` | Radar series for `l3` or `l7`, with its detected spikes |
 | `GET /export?limit=100` | Events as CSV |
 | `WS /ws` | `snapshot` on connect, then `event` and `state` messages. Both carry the spike status and the active spikes. |

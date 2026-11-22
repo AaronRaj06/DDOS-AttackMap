@@ -55,19 +55,29 @@ export function toPublicThreats({ entries, generatedAt }, geo, model) {
   // The model learned from ASN features, so it cannot run without that database
   const active = model && geo.hasASN ? model : null;
   const threats = [];
+  // Server-side only: rows hold full IPs, so this never goes into a response
+  const index = new Map();
   for (const entry of entries) {
     const place = geo.locate(entry.ip, entry.country);
     if (place.lat === null || place.lon === null) continue;
-    const dosScore = active ? score(active, toRow(entry, place, generatedAt)) : null;
+    const row = toRow(entry, place, generatedAt);
+    const dosScore = active ? score(active, row) : null;
+    const network = networkOf(entry.ip);
+    const flagged = active ? dosScore >= active.threshold : false;
+    // One entry speaks for its network: the highest score, or the latest report without a model
+    const rank = dosScore ?? (Date.parse(entry.reportedAt) || 0);
+    if (!index.has(network) || rank > index.get(network).rank) {
+      index.set(network, { rank, row, precise: place.precise, reportedAt: entry.reportedAt, dosScore, flagged });
+    }
     threats.push({
-      network: networkOf(entry.ip),
+      network,
       country: place.country,
       lat: Number(place.lat.toFixed(2)),
       lon: Number(place.lon.toFixed(2)),
       precise: place.precise,
       reportedAt: entry.reportedAt,
       dosScore,
-      flagged: active ? dosScore >= active.threshold : false,
+      flagged,
     });
   }
   const recentFirst = (a, b) => (Date.parse(b.reportedAt) || 0) - (Date.parse(a.reportedAt) || 0);
@@ -76,5 +86,5 @@ export function toPublicThreats({ entries, generatedAt }, geo, model) {
   // Half the dots at most are flagged, unless there is nothing else to show
   const shown = likely.slice(0, Math.max(PUBLIC_LIMIT / 2, PUBLIC_LIMIT - others.length));
   const points = [...shown, ...others.slice(0, PUBLIC_LIMIT - shown.length)];
-  return { total: threats.length, flagged: likely.length, points };
+  return { total: threats.length, flagged: likely.length, points, index };
 }

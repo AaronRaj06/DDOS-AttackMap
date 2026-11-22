@@ -1,8 +1,25 @@
+import { findCountry } from '../services/countries.js';
+
 // Only what is known for every blacklist entry without spending a /check call.
 // Report categories are the label, so they must never become features.
 const HOSTING = /host|cloud|server|data ?cent|vps|colo|digitalocean|amazon|google|microsoft|ovh|hetzner|linode|vultr/i;
 const ACCESS_ISP = /telecom|telekom|mobile|broadband|cable|wireless|communications|fib(er|re)/i;
 const NUMERIC = ['ipv6', 'hosting', 'access_isp', 'log_age_hours', 'asn_missing'];
+
+const LABELS = {
+  ipv6: 'IPv6 address',
+  hosting: 'Network name suggests hosting or cloud',
+  access_isp: 'Network name suggests a consumer ISP',
+  log_age_hours: 'Time since the last report',
+  asn_missing: 'No network (ASN) data for this address',
+};
+
+export function featureLabel(name) {
+  if (LABELS[name]) return LABELS[name];
+  if (name.startsWith('country_')) return `Located in ${findCountry(name.slice(8))?.name ?? name.slice(8)}`;
+  if (name.startsWith('asn_')) return `Network AS${name.slice(4)}`;
+  return name;
+}
 
 export function toRow({ ip, reportedAt }, place, generatedAt) {
   const age = (Date.parse(generatedAt) - Date.parse(reportedAt)) / 3_600_000;

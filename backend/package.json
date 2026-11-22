@@ -10,7 +10,8 @@
     "test": "node --test test/*.test.js",
     "geo:update": "node scripts/updateGeo.js",
     "ml:collect": "node --env-file-if-exists=.env scripts/collect.js",
-    "ml:train": "node scripts/train.js"
+    "ml:train": "node scripts/train.js",
+    "spikes:simulate": "node scripts/simulateSpikes.js"
   },
   "keywords": [
     "ddos",

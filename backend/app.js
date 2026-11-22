@@ -11,10 +11,10 @@ import { openGeoIP } from './services/geoIP.js';
 import { Intelligence } from './services/intelligence.js';
 import { EventBroadcaster } from './websocket/eventBroadcaster.js';
 
-export async function createService(config, { fetch, log = console } = {}) {
+export async function createService(config, { fetch, log = console, geo: geoOverride, model: modelOverride } = {}) {
   const store = new EventStore();
-  const geo = await openGeoIP(config.paths.geo, { log });
-  const model = loadModel(config.paths.model, { log });
+  const geo = geoOverride ?? await openGeoIP(config.paths.geo, { log });
+  const model = modelOverride ?? loadModel(config.paths.model, { log });
   let broadcaster;
   const intelligence = new Intelligence({
     config, geo, model, fetch, log,

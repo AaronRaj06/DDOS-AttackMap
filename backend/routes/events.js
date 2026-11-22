@@ -1,7 +1,10 @@
 import express from 'express';
 import { createObjectCsvStringifier } from 'csv-writer';
 
+import { networkOf } from '../services/ip.js';
+
 const MAX_LIMIT = 1000;
+const NETWORK = /^(?:(\d{1,3}\.\d{1,3}\.\d{1,3})\.0\/24|([0-9a-f]{1,4}:[0-9a-f]{1,4}:[0-9a-f]{1,4})::\/48)$/;
 const COLUMNS = {
   id: 'Event ID',
   ts: 'Replayed At',
@@ -25,6 +28,17 @@ export function parseLimit(raw) {
   return value >= 1 && value <= MAX_LIMIT ? value : null;
 }
 
+// Only the canonical form networkOf() prints is accepted: 203.0.113.0/24 or 2001:db8:1::/48
+export function parseNetwork(raw) {
+  const match = typeof raw === 'string' && raw.length <= 40 ? NETWORK.exec(raw) : null;
+  if (!match) return null;
+  try {
+    return networkOf(match[1] ? `${match[1]}.0` : `${match[2]}::`) === raw ? raw : null;
+  } catch {
+    return null;
+  }
+}
+
 function withLimit(req, res, next) {
   res.locals.limit = parseLimit(req.query.limit);
   if (res.locals.limit !== null) return next();
@@ -46,6 +60,18 @@ export function createEventsRouter({ store, intelligence }) {
   router.get('/threats', withLimit, (req, res) => {
     const { total, flagged, points } = intelligence.threats;
     res.json({ success: true, total, flagged, threats: points.slice(0, res.locals.limit) });
+  });
+
+  // The slash may arrive encoded (%2F) or as a real path separator
+  router.get(['/threats/:network', '/threats/:address/:prefix'], (req, res) => {
+    const { network: whole, address, prefix } = req.params;
+    const network = parseNetwork(whole ?? `${address}/${prefix}`);
+    if (!network) {
+      return res.status(400).json({ success: false, error: 'network must look like 203.0.113.0/24 or 2001:db8:1::/48' });
+    }
+    const found = intelligence.explainNetwork(network);
+    if (!found) return res.status(404).json({ success: false, error: 'That network is not in the current blacklist' });
+    return res.json({ success: true, ...found });
   });
 
   router.get('/export', withLimit, (req, res) => {

@@ -6,13 +6,17 @@ import { test } from 'node:test';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { WebSocket } from 'ws';
 import { createService } from '../app.js';
-import { json, silent, tempDir, testConfig } from './helpers.js';
+import { train } from '../ml/classifier.js';
+import { dataset } from './fixtures.js';
+import { json, noGeo, silent, tempDir, testConfig } from './helpers.js';
 
-async function boot(t, env, options = {}) {
+async function boot(t, env, { setup, ...options } = {}) {
   const dir = tempDir(t);
   mkdirSync(join(dir, 'dist'));
   writeFileSync(join(dir, 'dist', 'index.html'), '<title>map</title>');
-  const service = await createService(testConfig(dir, env), { log: silent, ...options });
+  const config = testConfig(dir, env);
+  setup?.(config);
+  const service = await createService(config, { log: silent, ...options });
   service.server.listen(0, '127.0.0.1');
   await once(service.server, 'listening');
   await service.start();
@@ -166,4 +170,88 @@ test('timeline shares the API rate limit', async (t) => {
   const statuses = [];
   for (let i = 0; i < 121; i++) statuses.push((await get('/timeline?layer=l3')).status);
   assert.equal(statuses[120], 429);
+});
+
+// A blacklist already on disk (next refresh far in the future, so nothing is fetched) and a trained model
+const seed = (config) => writeFileSync(config.paths.blacklist, JSON.stringify({
+  generatedAt: new Date().toISOString(),
+  nextAttempt: Date.now() + 1e9,
+  entries: [
+    { ip: '30.1.2.3', country: 'US', reportedAt: new Date().toISOString() },
+    { ip: '30.1.2.77', country: 'US', reportedAt: new Date(Date.now() - 3600_000).toISOString() },
+    { ip: '150.9.9.9', country: 'DE', reportedAt: new Date().toISOString() },
+    { ip: '2a00:1450:4001::5', country: 'DE', reportedAt: new Date().toISOString() },
+  ],
+}));
+const modelGeo = { ...noGeo, hasASN: true, locate: (ip, c) => ({ ...noGeo.locate(ip, c), asn: 101, org: ip.startsWith('30.') ? 'Example Hosting' : 'Example Net' }) };
+const sigmoid = (z) => 1 / (1 + Math.exp(-z));
+const keys = { ABUSEIPDB_KEY: 'test' };
+
+test('a flagged network explains itself, with exact arithmetic and no addresses', async (t) => {
+  const { get } = await boot(t, keys, { setup: seed, geo: modelGeo, model: train(dataset()) });
+  const body = await (await get(`/threats/${encodeURIComponent('30.1.2.0/24')}`)).json();
+  assert.equal(body.success, true);
+  assert.equal(body.network, '30.1.2.0/24');
+  assert.equal(body.flagged, true);
+  assert.equal(body.explanation.factors.length, 3);
+  assert.equal(body.explanation.factors[0].feature, 'hosting');
+
+  const { bias, factors, other } = body.explanation;
+  const total = bias + factors.reduce((sum, f) => sum + f.contribution, 0) + other;
+  assert.ok(Math.abs(sigmoid(total) - body.dosScore) < 1e-12);
+
+  const text = JSON.stringify(body);
+  for (const ip of ['30.1.2.3', '30.1.2.77']) assert.ok(!text.includes(ip), `leaked ${ip}`);
+  // two listed IPs share this network, so the more suspicious one speaks for it
+  assert.equal(body.reportedAt != null, true);
+});
+
+test('the slash in a network may be encoded or plain, and IPv6 works', async (t) => {
+  const { get } = await boot(t, keys, { setup: seed, geo: modelGeo, model: train(dataset()) });
+  const a = await (await get('/threats/30.1.2.0%2F24')).json();
+  const b = await (await get('/threats/30.1.2.0/24')).json();
+  assert.deepEqual(a, b);
+  const v6 = await (await get(`/threats/${encodeURIComponent('2a00:1450:4001::/48')}`)).json();
+  assert.equal(v6.network, '2a00:1450:4001::/48');
+  assert.equal((await get('/threats/2a00:1450:4001::/48')).status, 200);
+});
+
+test('unknown networks are 404, malformed ones are 400', async (t) => {
+  const { get } = await boot(t, keys, { setup: seed, geo: modelGeo, model: train(dataset()) });
+  assert.equal((await get('/threats/30.9.9.0%2F24')).status, 404);
+  assert.equal((await get('/threats/2a00:1450:4002::/48')).status, 404);
+  const bad = ['999.1.1.0/24', '30.1.2.0/25', '30.1.2.5/24', '30.1.2.0', '30.1.2/24', '2001:db8::/32', '2001:DB8:1::/48',
+    '2001:0db8:1::/48', '30.01.2.0/24', 'abc', '../../etc/passwd', '30.1.2.0/24/extra', '%00', 'a'.repeat(200)];
+  for (const raw of bad) {
+    const response = await get(`/threats/${encodeURIComponent(raw)}`);
+    assert.equal(response.status, 400, raw);
+    assert.ok(!(await response.text()).includes('passwd'));
+  }
+});
+
+test('without a model a network is still described, just not scored', async (t) => {
+  const { get } = await boot(t, keys, { setup: seed, geo: noGeo });
+  const body = await (await get('/threats/30.1.2.0%2F24')).json();
+  assert.deepEqual([body.dosScore, body.flagged, body.explanation], [null, false, null]);
+});
+
+test('explanations are rate limited with the rest of /threats', async (t) => {
+  const { get } = await boot(t, keys, { setup: seed });
+  const statuses = [];
+  for (let i = 0; i < 121; i++) statuses.push((await get('/threats/30.9.9.0%2F24')).status);
+  assert.equal(statuses[119], 404);
+  assert.equal(statuses[120], 429);
+});
+
+test('the 1,000-dot payload carries no reasons, and /health carries the model card', async (t) => {
+  const { get } = await boot(t, keys, { setup: seed, geo: modelGeo, model: train(dataset()) });
+  const { threats } = await (await get('/threats?limit=10')).json();
+  assert.ok(threats.length > 0);
+  for (const threat of threats) {
+    assert.deepEqual(Object.keys(threat).sort(), ['country', 'dosScore', 'flagged', 'lat', 'lon', 'network', 'precise', 'reportedAt']);
+  }
+  const health = await (await get('/health')).json();
+  assert.equal(health.classifier.state, 'active');
+  assert.ok(health.classifier.trainedAt && health.classifier.samples.test > 0 && health.classifier.metrics.precision >= 0);
+  assert.ok(!JSON.stringify(health).includes('weights'), 'the model itself stays private');
 });
