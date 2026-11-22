@@ -7,12 +7,12 @@ import { demoTrends } from '../services/demoTrends.js';
 import { generateEvent, pickWeighted } from '../services/eventGenerator.js';
 import { EventStore } from '../services/eventStore.js';
 import { openGeoIP } from '../services/geoIP.js';
-import { clientIP, networkOf } from '../services/ip.js';
+import { clientIP, isPublicIP, networkOf } from '../services/ip.js';
 import { silent, tempDir } from './helpers.js';
 
 test('.env.example holds no secrets', () => {
   const text = readFileSync(new URL('../.env.example', import.meta.url), 'utf8');
-  for (const name of ['CLOUDFLARE_API_TOKEN', 'ABUSEIPDB_KEY', 'MONGODB_URI']) {
+  for (const name of ['CLOUDFLARE_API_TOKEN', 'ABUSEIPDB_KEY', 'MONGODB_URI', 'ALERT_WEBHOOK_URL']) {
     assert.match(text, new RegExp(`^${name}=$`, 'm'));
   }
 });
@@ -75,4 +75,17 @@ test('location falls back to the country without a database', async (t) => {
   assert.equal(geo.locate('1.1.1.1', 'AU').precise, false);
   assert.ok(geo.locate('1.1.1.1', 'AU').lat < 0);
   assert.equal(geo.locate('1.1.1.1', null).lat, null);
+});
+
+test('private, reserved and special-use addresses are not public', () => {
+  const nonPublic = ['0.0.0.0', '10.1.2.3', '100.64.0.1', '127.0.0.1', '127.255.255.254', '169.254.169.254', '172.16.0.1', '172.31.255.255',
+    '192.0.2.1', '192.168.1.1', '198.18.0.1', '198.51.100.7', '203.0.113.9', '224.0.0.1', '240.0.0.1', '255.255.255.255',
+    '::', '::1', 'fe80::1', 'fc00::1', 'fd12:3456::1', 'ff02::1', '2001:db8::1', '64:ff9b::808:808', '::ffff:10.0.0.1', '::ffff:127.0.0.1', '::ffff:a00:1'];
+  for (const ip of nonPublic) assert.equal(isPublicIP(ip), false, ip);
+  const publicIps = ['8.8.8.8', '1.1.1.1', '172.15.0.1', '172.32.0.1', '100.63.255.255', '100.128.0.1', '192.0.3.1', '223.255.255.254',
+    '2001:4860:4860::8888', '2606:4700:4700::1111', '2a00:1450:4001::5', '::ffff:8.8.8.8'];
+  for (const ip of publicIps) assert.equal(isPublicIP(ip), true, ip);
+  for (const bad of ['', 'x', '1.2.3', '1.2.3.4.5', '256.1.1.1', '01.2.3.4', ' 8.8.8.8', '8.8.8.8 ', 'fe80::1%eth0', '2001:4860:4860::8888%lo0']) {
+    assert.equal(isPublicIP(bad), false, JSON.stringify(bad));
+  }
 });

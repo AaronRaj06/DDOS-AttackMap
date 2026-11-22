@@ -1,7 +1,13 @@
 import { createService } from './app.js';
 import { loadConfig } from './config/index.js';
 
-const config = loadConfig();
+let config;
+try {
+  config = loadConfig();
+} catch (error) {
+  console.error(error.message);
+  process.exit(1);
+}
 const service = await createService(config);
 
 service.server.on('error', (error) => {

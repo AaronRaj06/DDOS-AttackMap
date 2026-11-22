@@ -84,6 +84,7 @@ Set these in `backend/.env`.
 |---|---|---|
 | `CLOUDFLARE_API_TOKEN` | empty | Custom token with only `Account > Radar > Read`. Never use a Global API Key. |
 | `ABUSEIPDB_KEY` | empty | Enables threat dots and training. |
+| `ALERT_WEBHOOK_URL` | empty | Slack-compatible `https` webhook told when a spike starts. Checked at startup. Treat it as a secret. |
 | `MONGODB_URI` | empty | Keeps replayed events for 3 days and restores them on restart. |
 | `PORT` | `5050` | 5000 is taken by AirPlay on macOS. |
 | `HOST` | `127.0.0.1` | Docker sets `0.0.0.0`. |
@@ -116,6 +117,23 @@ Measured on simulated series, not real attacks (`npm run spikes:simulate`, 300 s
 Quiet series stay quiet, but on bursty traffic the detector misses moderate surges, because bursts
 that size are ordinary there. Real Radar traffic may behave differently, so treat the thresholds in
 `services/spikes.js` as starting values.
+
+## Alerts
+
+Set `ALERT_WEBHOOK_URL` and run `npm run alert:test` to check it. When a spike starts, one
+message `{"text": ...}` is posted that names the layer, how far above normal it is and when it
+began. It never contains an IP, a key or the webhook itself.
+
+- **One alert per spike**, and at most one per 30 minutes. A spike held back by the cooldown is
+  announced afterwards if it is still running. One that ended meanwhile never is.
+- **Safe by construction:** the URL comes only from the environment, never from a request. It must
+  be `https` with no credentials, and a literal private or loopback address is refused at startup.
+  Redirects are not followed, a request times out after 5 seconds, and a failure is retried once.
+  A hostname that resolves to a private address is not caught.
+- **Failure is quiet:** a dead endpoint never breaks the dashboard, never starts the cooldown, and is
+  tried again at the next Radar refresh. Logs say what kind of failure, never the URL.
+- **Restarts:** what was announced and when is kept in `backend/.cache/alerts.json`, so a crash loop
+  cannot repeat an alert.
 
 ## The classifier
 

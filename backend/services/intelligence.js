@@ -14,8 +14,8 @@ const SERIES_PARTS = { seriesL3: 'l3', seriesL7: 'l7' };
 
 // Owns everything that comes from upstream sources, and says how trustworthy it is right now.
 export class Intelligence {
-  constructor({ config, geo, model, fetch, onChange = () => {}, onSeries = () => {}, now = Date.now, log = console }) {
-    Object.assign(this, { config, geo, model, onChange, onSeries, now, log });
+  constructor({ config, geo, model, fetch, notifier = null, onChange = () => {}, onSeries = () => {}, now = Date.now, log = console }) {
+    Object.assign(this, { config, geo, model, notifier, onChange, onSeries, now, log });
     this.radarClient = config.cloudflareToken ? new CloudflareRadarClient(config.cloudflareToken, { fetch }) : null;
     this.abuseClient = config.abuseKey ? new AbuseIPDBClient(config.abuseKey, { fetch }) : null;
     this.parts = { l3: [], l7: [], vectors: [], targetsL3: [], targetsL7: [], duration: [], bitrate: [], trend: [] };
@@ -65,6 +65,8 @@ export class Intelligence {
 
     if (errors.length) this.log.error(this.radar.error);
     this.onChange();
+    // After the broadcast, so a slow webhook never delays the dashboard
+    await this.notifier?.consider(this.spikeSummary().active);
     return errors.length ? Math.max(RADAR_RETRY_MS, errors[0].retryAfterMs ?? 0) : RADAR_REFRESH_MS;
   }
 
@@ -144,6 +146,8 @@ export class Intelligence {
       abuse: { ...this.abuse },
       geo: this.geo.hasCity ? 'city' : 'country',
       classifier: this.classifierStatus(),
+      // Whether alerts are on, never where they go
+      alerts: { enabled: Boolean(this.notifier), lastSentAt: this.notifier?.lastSentIso() ?? null },
     };
   }
 

@@ -16,6 +16,7 @@ export function testConfig(dir, env = {}) {
     ...loadConfig({ PORT: '0', ...env }),
     paths: {
       blacklist: join(dir, 'blacklist.json'),
+      alerts: join(dir, 'alerts.json'),
       geo: join(dir, 'geo'),
       model: join(dir, 'model.json'),
       training: join(dir, 'labels.jsonl'),

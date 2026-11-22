@@ -7,6 +7,7 @@ import { loadModel } from './ml/classifier.js';
 import { createEventsRouter } from './routes/events.js';
 import { EventGenerator } from './services/eventGenerator.js';
 import { EventStore } from './services/eventStore.js';
+import { Notifier } from './services/alerts.js';
 import { openGeoIP } from './services/geoIP.js';
 import { Intelligence } from './services/intelligence.js';
 import { EventBroadcaster } from './websocket/eventBroadcaster.js';
@@ -16,8 +17,11 @@ export async function createService(config, { fetch, log = console, geo: geoOver
   const geo = geoOverride ?? await openGeoIP(config.paths.geo, { log });
   const model = modelOverride ?? loadModel(config.paths.model, { log });
   let broadcaster;
+  const notifier = config.alertWebhookUrl
+    ? new Notifier({ url: config.alertWebhookUrl, file: config.paths.alerts, fetch, log })
+    : null;
   const intelligence = new Intelligence({
-    config, geo, model, fetch, log,
+    config, geo, model, fetch, log, notifier,
     onChange: () => broadcaster.broadcast({ type: 'state', data: intelligence.snapshot() }),
     onSeries: (layer, points) => db.saveSeries?.(layer, points),
   });
