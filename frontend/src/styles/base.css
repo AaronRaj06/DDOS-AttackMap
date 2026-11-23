@@ -1,0 +1,186 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  scroll-padding-block: var(--header-h);
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  background: var(--bg-0);
+  color: var(--text-1);
+  font: var(--text-base) / var(--leading-body) var(--font-sans);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, p, ul, ol, dl, dd, figure {
+  margin: 0;
+}
+
+ul, ol {
+  padding: 0;
+  list-style: none;
+}
+
+a {
+  color: var(--link);
+}
+
+a:hover {
+  color: var(--accent-hover);
+}
+
+:focus-visible {
+  outline: var(--focus-width) solid var(--focus);
+  outline-offset: var(--focus-offset);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.skip-link {
+  position: absolute;
+  top: calc(-1 * var(--target-min) - var(--space-4));
+  left: var(--space-2);
+  z-index: var(--z-toast);
+  min-height: var(--target-min);
+  padding: 0 var(--space-4);
+  display: inline-flex;
+  align-items: center;
+  background: var(--bg-2);
+  color: var(--text-1);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-md);
+  font: inherit;
+}
+
+.skip-link:focus {
+  top: var(--space-2);
+}
+
+.icon {
+  flex: none;
+  width: 1.125rem;
+  height: 1.125rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Buttons: 44px targets, a visible edge, and press feedback that never moves the layout */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: var(--target-min);
+  padding: 0 var(--space-3);
+  background: var(--bg-2);
+  color: var(--text-1);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-md);
+  font: inherit;
+  font-size: var(--text-sm);
+  line-height: 1;
+  text-decoration: none;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: background var(--dur-instant) var(--ease-out);
+}
+
+.btn:hover {
+  background: color-mix(in srgb, var(--bg-2), var(--text-1) 9%);
+  color: var(--text-1);
+}
+
+.btn:active {
+  background: color-mix(in srgb, var(--bg-2), var(--text-1) 16%);
+}
+
+.btn[aria-pressed='true'] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--text-on-accent);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn.quiet {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-2);
+}
+
+.btn.icon-only {
+  width: var(--target-min);
+  padding: 0;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.75rem;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-pill);
+  font-size: var(--text-xs);
+  color: var(--text-2);
+}
+
+.badge.connected,
+.badge.mode-live {
+  border-color: var(--status-ok);
+  color: var(--status-ok);
+}
+
+.badge.connecting,
+.badge.reconnecting,
+.badge.mode-demo,
+.badge.mode-unavailable {
+  border-color: var(--status-warn);
+  color: var(--status-warn);
+}
+
+.skeleton {
+  display: block;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--text-1), transparent 90%);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+.skeleton-rows {
+  display: grid;
+  gap: var(--space-2);
+}
+
+@keyframes pulse {
+  50% { opacity: 0.45; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion='full']) .skeleton { animation: none; }
+}
+
+:root[data-motion='reduced'] .skeleton {
+  animation: none;
+}

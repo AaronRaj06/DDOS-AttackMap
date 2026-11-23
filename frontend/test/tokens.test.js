@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { contrast, deltaE, simulate, VISIONS, worstPair } from './color.js';
 
@@ -53,4 +53,15 @@ test('the checker itself: known pairs behave as they should', () => {
   // green and red really do collapse under deuteranopia, which is why severity avoids that pair
   assert.ok(deltaE(simulate('#3ddc97', 'deuteranopia'), simulate('#ff7b72', 'deuteranopia')) < 10);
   assert.deepEqual(VISIONS, ['normal', 'protanopia', 'deuteranopia', 'tritanopia']);
+});
+
+test('no component stylesheet uses a raw colour: everything goes through the tokens', () => {
+  const dir = new URL('../src/styles/', import.meta.url);
+  const raw = /#[0-9a-fA-F]{3,8}\b|\brgba?\(|\bhsla?\(/;
+  const checked = readdirSync(dir).filter((name) => name.endsWith('.css') && name !== 'tokens.css');
+  assert.ok(checked.length >= 2, 'found the stylesheets');
+  for (const name of checked) {
+    const lines = readFileSync(new URL(name, dir), 'utf8').split('\n');
+    lines.forEach((line, i) => assert.ok(!raw.test(line), `${name}:${i + 1} has a raw colour: ${line.trim()}`));
+  }
 });

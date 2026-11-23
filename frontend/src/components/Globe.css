@@ -1,9 +1,0 @@
-.globe-container {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-}
-
-.globe-container canvas {
-  display: block;
-}

@@ -1,6 +1,8 @@
-export const LAYERS = {
-  l3: { label: 'Network (L3/4)', color: '#36c5f0' },
-  l7: { label: 'Application (L7)', color: '#ffb020' },
-};
+export const LAYER_KEYS = ['l3', 'l7'];
 
-export const POINT_COLORS = { reported: '#c084fc', flagged: '#ff4d4f' };
+// Colours live in tokens.css. Canvas and WebGL code reads them from there so there is one source of truth.
+export function cssColor(name) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || '#ffffff';
+}
+
+export const layerColor = (layer) => cssColor(`--data-${layer}`);

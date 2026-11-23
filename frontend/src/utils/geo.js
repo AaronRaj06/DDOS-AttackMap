@@ -55,3 +55,46 @@ export function landSegments({ features }, radius = 1) {
   }
   return out;
 }
+
+// Equirectangular map, 360 x 180 units: x is longitude + 180, y is 90 - latitude
+export const projectXY = (lat, lon) => [lon + 180, 90 - lat];
+
+function* ringSegments(geometry) {
+  let polygons = [];
+  if (geometry?.type === 'Polygon') polygons = [geometry.coordinates];
+  else if (geometry?.type === 'MultiPolygon') polygons = geometry.coordinates;
+  for (const ring of polygons.flat()) for (let i = 1; i < ring.length; i++) yield [ring[i - 1], ring[i]];
+}
+
+// Land outline as one SVG path. The date-line and south-pole edges that close polygons are left out.
+export function landPath({ features }) {
+  const parts = [];
+  let pen = null;
+  for (const { geometry } of features) {
+    for (const [[lon1, lat1], [lon2, lat2]] of ringSegments(geometry)) {
+      const skip = (Math.abs(lon1) >= 179.99 && Math.abs(lon2) >= 179.99) || lat1 <= -89.99 || lat2 <= -89.99;
+      if (skip) {
+        pen = null;
+        continue;
+      }
+      const [x1, y1] = projectXY(lat1, lon1);
+      const [x2, y2] = projectXY(lat2, lon2);
+      if (pen !== `${x1},${y1}`) parts.push(`M${x1.toFixed(1)} ${y1.toFixed(1)}`);
+      parts.push(`L${x2.toFixed(1)} ${y2.toFixed(1)}`);
+      pen = `${x2},${y2}`;
+    }
+    pen = null;
+  }
+  return parts.join('');
+}
+
+// A curve between two places, bowed upward. shortcut: a route across the date line is drawn the
+// short way and leaves the map edge without re-entering. Upgrade to split paths if that matters.
+export function arc2d(from, to) {
+  const [x1, y1] = projectXY(...from);
+  let [x2, y2] = projectXY(...to);
+  if (x2 - x1 > 180) x2 -= 360;
+  if (x1 - x2 > 180) x2 += 360;
+  const lift = Math.min(40, Math.hypot(x2 - x1, y2 - y1) * 0.35);
+  return `M${x1.toFixed(1)} ${y1.toFixed(1)}Q${((x1 + x2) / 2).toFixed(1)} ${(((y1 + y2) / 2) - lift).toFixed(1)} ${x2.toFixed(1)} ${y2.toFixed(1)}`;
+}

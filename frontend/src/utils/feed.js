@@ -2,7 +2,11 @@ export const RECENT_LIMIT = 50;
 
 export const initialFeed = {
   status: null,
+  spikes: { status: 'unavailable', active: [] },
   vectors: [],
+  trend: [],
+  sizes: { duration: [], bitrate: [] },
+  targets: { l3: [], l7: [] },
   corridors: [],
   threats: { total: 0, flagged: 0, points: [] },
   events: [],

@@ -42,3 +42,7 @@ backend/data/training/
 
 # UI skills installed by `uipro init` are tooling, not part of the app
 .claude/skills/
+
+# Playwright output
+frontend/test-results/
+frontend/playwright-report/
