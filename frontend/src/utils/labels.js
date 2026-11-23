@@ -24,6 +24,12 @@ export function formatDuration(ms) {
   return minutes % 60 ? `${hours} h ${minutes % 60} min` : `${hours} h`;
 }
 
+// Short enough for a status tile: "L7 4.7x normal since 11-23 00:30 UTC"
+export function spikeShort(spike) {
+  const code = spike.layer === 'l3' ? 'L3/4' : 'L7';
+  return `${code} ${spike.ratio ? `${spike.ratio}x normal` : 'far above normal'} since ${formatUtc(spike.start)}`;
+}
+
 export function spikeSentence(spike) {
   const size = spike.ratio ? `${spike.ratio}x its recent level` : 'far above its recent level';
   const when = spike.active ? `since ${formatUtc(spike.start)}` : `${formatUtc(spike.start)} to ${formatUtc(spike.end)}`;

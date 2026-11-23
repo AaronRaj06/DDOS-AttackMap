@@ -20,6 +20,7 @@ It runs without any API keys in a clearly labeled demo mode.
 | Dots | AbuseIPDB blacklist, refreshed every 6 hours | IPs reported for any kind of abuse, shown as /24 or /48 networks. |
 | Red dots | The classifier | IPs the model ranks as likely DoS sources. Only shown after you train it. `GET /threats/{network}` says which factors pushed a network up or down. |
 | IP lookup | DB-IP Lite databases on disk | Approximate, often only city-level, and wrong for mobile or proxied addresses. Nothing is sent to a third party. |
+| Timeline replay | The same Radar timeseries | Shows how much and when. Radar's timeseries has no routes, so the map does not change during a replay. |
 | Demo mode | Built-in illustrative routes | Made up. Always labeled as demo. |
 
 Network-layer origins are the Cloudflare data center country that received the traffic, because
@@ -46,6 +47,63 @@ flowchart LR
 - **Frontend:** React 19, Vite, Three.js
 - **ML:** logistic regression in plain JavaScript, trained offline
 - **Delivery:** one Docker image serving the API, WebSocket and UI, with a GitHub Actions pipeline
+
+## Using the dashboard
+
+- **Status tiles:** threat status (an icon and a word: Normal, Elevated, Spike or No data), the top origin
+  and how old the data is. Ages tick, and screen readers are not told about the ticks.
+- **Globe and flat map:** hover or click an arc or a dot for a card. A route card shows its layer and
+  share. A network card shows the country, ASN and score, and the three factors behind the score. Switch to
+  a flat map from the header. Without WebGL the flat map is shown for you.
+- **Dots:** reported IPs are discs and likely DoS sources are rings, so the difference never depends on
+  colour. Zoomed out they merge into a glow that shows density.
+- **Lists:** every card is also reachable from the lists beside the map, so nothing needs a pointer.
+  Hovering or focusing a route in the list outlines it on the map.
+- **Timeline:** Radar traffic per layer for 3 days, with spikes as a shaded band, a triangle and a
+  button. Pick one to replay it.
+- **Panels:** where attacks land, week-over-week vectors, attack size, an offline IP lookup and a model
+  card. They collapse, and they are remembered.
+- **On a phone:** the header actions move into a menu and the panels into a bottom sheet.
+
+### Filters and links
+
+Layer, flagged-only and a watchlist of countries filter every list and every new arc. They need no
+server calls and are saved in this browser. A link overrides what was saved, one setting at a time.
+
+| Parameter | Values | Example |
+|---|---|---|
+| `layer` | `l3` or `l7` | `?layer=l7` |
+| `country` | up to 20 ISO country codes | `?country=DE,FR` |
+| `flagged` | `1` | `?flagged=1` |
+| `kiosk` | `1` | `?kiosk=1` |
+
+Anything else is ignored and never reaches the page. `?kiosk=1` hides the controls and the sidebar for a
+wall display: larger numbers, auto-rotation, and a cursor that hides when idle. Escape leaves it.
+
+### Keyboard
+
+| Key | Does |
+|---|---|
+| Tab | Moves in visual order. The first stop is a skip link. |
+| Arrow keys, `+`, `-` on the globe | Rotate and zoom |
+| Space on the globe or the flat map | Pause or resume |
+| Enter on a list row | Opens its card and moves focus there |
+| Escape | Closes the card, the menu or the sheet, and returns focus. In kiosk mode it leaves kiosk. |
+| Arrow keys, Enter, Escape in the country picker | A standard combobox |
+
+**Reduce motion** follows your system setting until you switch it in the header. It stops
+auto-rotation and arc animation, and arcs appear whole.
+
+### What is stored in your browser
+
+Only these, all local, never sent anywhere: your filters and watchlist, the globe or map choice, the
+motion setting, which panels are open, which notices you dismissed and the last data mode seen.
+
+### Design system
+
+[docs/design-system.md](docs/design-system.md) has the tokens, the measured contrast and colour-blind
+separation, and the accessibility rules. `frontend/src/styles/tokens.css` is the only place a colour is
+defined, and a test fails if a stylesheet uses a raw one.
 
 ## Quick start
 
@@ -239,9 +297,15 @@ scrape_configs:
 ```bash
 cd backend && npm test
 cd frontend && npm run lint && npm test && npm run build
+cd frontend && npx playwright install chromium && npm run e2e
 ```
 
 Upstream APIs are mocked in tests, using the shapes in their published documentation.
+
+`npm run e2e` builds the app and drives it in a real browser against the backend in demo mode: the
+page and WebSocket, a non-blank globe, Pause, filters and links, the keyboard, a 320px viewport, the
+phone menu and sheet, kiosk, reduced motion, the no-WebGL fallback and an axe-core accessibility audit
+of nine states. CI runs it on every push.
 
 ## Before deploying publicly
 

@@ -24,7 +24,8 @@ export default function Header({ connection, mode, paused, onPause, view, onView
       <h1>Global DoS Attack Map</h1>
       <div className="header-badges">
         <span className={`badge ${connection}`} role="status">{CONNECTION[connection]}</span>
-        {mode && <span className={`badge mode-${mode}`}>{MODE[mode]}</span>}
+        {/* always present, so the header does not re-wrap when the server reports its mode */}
+        <span className={`badge ${mode ? `mode-${mode}` : ''}`}>{mode ? MODE[mode] : 'Checking'}</span>
       </div>
 
       {kiosk ? (

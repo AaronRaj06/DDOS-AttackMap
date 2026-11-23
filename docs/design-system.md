@@ -167,23 +167,38 @@ The data is the motion. Everything else is still.
 
 ## Components and where they come from
 
-Built from scratch in plain CSS on these tokens unless a ready component clearly beats it. The
-decisions are recorded in the final report, with the licence, keyboard behaviour and dependency
-footprint checked for each one adopted.
+Everything is built from scratch in plain CSS on these tokens. The 21st.dev plugin was installed, but its
+sign-in was not completed, so no 21st component was used. They would not have beaten building here
+anyway: they are shadcn and Tailwind based, this project has neither, and the initial JavaScript budget
+(80 kB gzip) leaves under 1 kB of room.
+
+| Need | Used | Why it is enough |
+|---|---|---|
+| Segmented control, toggles | Buttons with `aria-pressed` | The standard toggle pattern, nothing to add |
+| Country search | A hand-written ARIA 1.2 combobox | About 70 lines, keyboard-complete, loaded only when opened |
+| Bottom sheet, dialog | The native `<dialog>` | Focus trap, Escape and an inert page come with the browser |
+| Collapsible panels | The native `<details>` | Keyboard and screen reader behaviour come with it |
+| Skeletons | One CSS class | The pulse stops under reduced motion |
+| Toast | Not needed | Results and errors appear inline |
 
 ## Review checklist
 
-The checklist from the UI/UX Pro Max skill, restricted to the items that apply to a web dashboard.
-The result of the final run is in the report.
+The checklist from the UI/UX Pro Max skill, restricted to the items that apply to a web dashboard, run at
+the end of the build. The evidence is a test or a measurement, not an opinion.
 
-- [ ] No emoji used as icons, and all icons from one family and style
-- [ ] Press states do not shift layout
-- [ ] Semantic tokens only, with no raw colour in component CSS
-- [ ] Text at least 4.5:1 and meaningful marks at least 3:1, in every state
-- [ ] Targets at least 44px, and a visible focus ring everywhere
-- [ ] Colour is never the only indicator
-- [ ] Keyboard order matches visual order, and nothing is a trap
-- [ ] Reduced motion works from both the OS and the toggle
-- [ ] Sticky UI never hides focus
-- [ ] No horizontal scroll at 320px, and layouts hold at 360, 390, 820 and 1366px
-- [ ] Moving content can be paused
+- [x] No emoji used as icons, and all icons from one family and style: one 20-icon SVG set in `Icon.jsx`
+- [x] Press states do not shift layout: buttons change background only
+- [x] Semantic tokens only, with no raw colour in component CSS: enforced by `tokens.test.js`
+- [x] Text at least 4.5:1 and meaningful marks at least 3:1, in every state: `tokens.test.js` on all three surfaces
+- [x] Targets at least 44px and a visible focus ring everywhere: an e2e test measures every control and
+      tabs through 40 stops
+- [x] Colour is never the only indicator: layers are named, flagged points are rings, severity has an
+      icon and a word, and trend changes have an arrow and a word
+- [x] Keyboard order matches visual order, and nothing is a trap: walked in a real browser, 43 stops
+- [x] Reduced motion works from both the OS and the toggle: e2e covers both
+- [x] Sticky UI never hides focus: nothing is sticky, and `scroll-padding` is set anyway
+- [x] No horizontal scroll at 320px, and layouts hold at 360, 390, 820 and 1366px: e2e at four widths
+- [x] Moving content can be paused: the header Pause, and Space on the map
+- [x] Accessibility: axe-core reports 0 violations in 9 states, and Lighthouse scores 100
+- [x] Layout shift: 0.005 on a phone and 0.000 on desktop. Space is held for the notice, the mode
+      badge and the tile text.

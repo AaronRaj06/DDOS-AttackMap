@@ -10,7 +10,7 @@ import { SkeletonRows } from './Skeleton';
 function RouteDetails({ route, live, drawnAt, now }) {
   return (
     <>
-      <h3 tabIndex={-1} data-card-title>{route.src.name} → {route.dst.name}</h3>
+      <h2 tabIndex={-1} data-card-title>{route.src.name} → {route.dst.name}</h2>
       <dl className="facts">
         <div><dt>Layer</dt><dd><span className="swatch" style={{ background: `var(--data-${route.layer})` }} aria-hidden="true" />{LAYER_LABELS[route.layer]}</dd></div>
         <div><dt>Share of that layer</dt><dd>{live ? `${formatShare(route.share)} over the last 24 hours` : 'Not meaningful in demo mode'}</dd></div>
@@ -25,7 +25,7 @@ function NetworkDetails({ point }) {
   const { data, error, loading } = useRemote(`/threats/${encodeURIComponent(point.network)}`);
   return (
     <>
-      <h3 tabIndex={-1} data-card-title className="mono">{point.network}</h3>
+      <h2 tabIndex={-1} data-card-title className="mono">{point.network}</h2>
       <dl className="facts">
         <div><dt>Country</dt><dd>{countryName(point.country)}{point.precise ? '' : ' (country level)'}</dd></div>
         {point.reportedAt && <div><dt>Last reported</dt><dd>{formatUtc(point.reportedAt)}</dd></div>}
@@ -48,7 +48,7 @@ function NetworkDetails({ point }) {
           {data.asn != null && <p className="note">AS{data.asn} {data.org}</p>}
           {data.explanation ? (
             <>
-              <h4>Why this score</h4>
+              <h3>Why this score</h3>
               <ul className="factors">
                 {data.explanation.factors.map((factor) => (
                   <li key={factor.feature}>

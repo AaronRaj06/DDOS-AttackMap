@@ -35,6 +35,7 @@
 }
 
 .notice {
+  min-height: calc(var(--target-min) + var(--space-2));
   display: flex;
   align-items: center;
   gap: var(--space-2);
@@ -69,12 +70,14 @@
   min-width: 0;
   min-height: 0;
   padding: var(--space-4) var(--space-6);
+  overflow-y: auto;
 }
 
+/* The map keeps a real size. The timeline and the rest scroll below it. */
 .viewport {
   position: relative;
-  flex: 1;
-  min-height: 16rem;
+  flex: 1 0 auto;
+  min-height: clamp(18rem, 52dvh, 42rem);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
   background: var(--bg-globe);
@@ -140,6 +143,12 @@
 
 .tile-note {
   margin-top: var(--space-1);
+  /* two lines held open, so real text replacing "Connecting" does not push the page down */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  min-height: calc(2 * var(--leading-body) * var(--text-xs));
+  overflow: hidden;
   color: var(--text-2);
   font-size: var(--text-xs);
 }
@@ -448,6 +457,13 @@
   margin-top: var(--space-2);
 }
 
+/* attribution links are targets too, not just text */
+.credits a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--target-min);
+}
+
 /* Bottom sheet */
 .sheet {
   width: 100%;
@@ -516,6 +532,11 @@
 
 .app[data-kiosk='true'] .tile-value {
   font-size: var(--text-stat-kiosk);
+}
+
+.app[data-kiosk='true'] .tile-note {
+  -webkit-line-clamp: none;
+  min-height: 0;
 }
 
 .app[data-kiosk='true'] .tile-note,
@@ -780,17 +801,17 @@
   right: var(--space-1);
 }
 
-.info-card h3 {
+.info-card h2 {
   margin-right: var(--target-min);
   font-size: var(--text-md);
   overflow-wrap: anywhere;
 }
 
-.info-card h3:focus-visible {
+.info-card h2:focus-visible {
   outline-offset: 4px;
 }
 
-.info-card h4 {
+.info-card h3 {
   margin-top: var(--space-3);
   font-size: var(--text-sm);
 }
@@ -839,4 +860,255 @@
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   font-weight: 500;
+}
+
+/* Timeline strip */
+.timeline {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: var(--bg-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.tl-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-3);
+}
+
+.tl-head h2 {
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.tl-row {
+  display: grid;
+  grid-template-columns: 8.5rem minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.tl-label {
+  display: grid;
+  gap: var(--space-1);
+  font-size: var(--text-sm);
+}
+
+.chip-status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--text-xs);
+}
+
+.tl-chart svg {
+  display: block;
+  width: 100%;
+  height: 2.75rem;
+  overflow: visible;
+}
+
+.tl-line {
+  fill: none;
+  stroke: var(--layer);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.tl-area {
+  fill: var(--layer);
+  opacity: 0.14;
+}
+
+.tl-spike {
+  cursor: pointer;
+}
+
+.tl-spike rect {
+  fill: var(--sev-spike-bg);
+  stroke: var(--sev-spike);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.tl-spike polygon {
+  fill: var(--sev-spike);
+}
+
+.tl-playhead {
+  stroke: var(--text-1);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.spike-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.replay {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: var(--bg-0);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-md);
+}
+
+.replay-title {
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.replay-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.scrub {
+  flex: 1 1 10rem;
+}
+
+.scrub input {
+  width: 100%;
+  min-height: var(--target-min);
+  accent-color: var(--accent);
+}
+
+.replay-readout {
+  font-size: var(--text-sm);
+}
+
+/* Bars: label, figure and a proportional bar (the figure carries the number) */
+.bars {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-sm);
+}
+
+.bars li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: var(--space-3);
+}
+
+.bars b {
+  color: var(--text-2);
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.bar {
+  grid-column: 1 / -1;
+  height: 0.25rem;
+  margin-top: var(--space-1);
+  background: var(--border-subtle);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+}
+
+.bar span {
+  display: block;
+  height: 100%;
+  background: var(--text-3);
+}
+
+.trend-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+}
+
+.trend-row b {
+  font-family: var(--font-mono);
+  font-weight: 500;
+}
+
+.change {
+  grid-column: 1 / -1;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--text-2);
+  font-size: var(--text-xs);
+}
+
+/* Lookup and model card */
+.lookup {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-1);
+  padding: 0 var(--space-3);
+}
+
+.lookup label {
+  color: var(--text-2);
+  font-size: var(--text-xs);
+}
+
+.lookup-row {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.lookup input {
+  flex: 1;
+  min-width: 0;
+  min-height: var(--target-min);
+  padding: 0 var(--space-3);
+  background: var(--bg-1);
+  color: var(--text-1);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-md);
+  font: inherit;
+  font-family: var(--font-mono);
+  font-size: var(--text-md);
+}
+
+.lookup-error {
+  margin: var(--space-3);
+  color: var(--status-bad);
+  font-size: var(--text-sm);
+}
+
+.lookup-result,
+.model-card {
+  padding: 0 var(--space-3);
+}
+
+.model-card {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.model-card .state {
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.app[data-kiosk='true'] .timeline {
+  display: none;
+}
+
+@media (max-width: 560px) {
+  .tl-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-1);
+  }
+
+  .tl-label {
+    display: flex;
+    justify-content: space-between;
+  }
 }

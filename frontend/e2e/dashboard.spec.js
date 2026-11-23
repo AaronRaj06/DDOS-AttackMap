@@ -124,7 +124,7 @@ test('keyboard only: skip link, a list opens the card, Escape returns focus', as
   await page.keyboard.press('Enter');
   const card = page.getByRole('region', { name: 'Details' });
   await expect(card).toBeVisible();
-  await expect(card.getByRole('heading', { level: 3 })).toBeFocused();
+  await expect(card.getByRole('heading', { level: 2 })).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(card).toHaveCount(0);
   await expect(row).toBeFocused();

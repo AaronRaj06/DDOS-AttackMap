@@ -1,8 +1,10 @@
 import { formatAge } from '../utils/age';
-import { matchesEvent, matchesRoute } from '../utils/filters';
-import { formatShare, LAYER_LABELS } from '../utils/labels';
+import { matchesEvent, matchesRoute, matchesTarget } from '../utils/filters';
+import { formatChange, formatShare, humanizeBucket, LAYER_LABELS } from '../utils/labels';
 import { SOURCE_STATE } from '../utils/severity';
 import Icon from './Icon';
+import Lookup from './Lookup';
+import ModelCard from './ModelCard';
 import Panel from './Panel';
 import { SkeletonRows } from './Skeleton';
 
@@ -56,7 +58,7 @@ function RoutesPanel({ feed, filters, onSelect, onHoverRoute }) {
 function RecentPanel({ events, filters, onSelect }) {
   const rows = events.filter((event) => matchesEvent(filters, event)).slice(-6).reverse();
   return (
-    <Panel id="recent" title="Recently drawn">
+    <Panel id="recent" title="Recently drawn" defaultOpen={false}>
       {rows.length ? (
         <ul className="rows">
           {rows.map((event) => (
@@ -68,6 +70,71 @@ function RecentPanel({ events, filters, onSelect }) {
           ))}
         </ul>
       ) : <p className="empty">Nothing drawn yet that matches the filters.</p>}
+    </Panel>
+  );
+}
+
+function Bars({ rows, label, value = (row) => row.share }) {
+  const max = Math.max(...rows.map(value), 1);
+  return (
+    <ul className="bars">
+      {rows.map((row) => (
+        <li key={label(row)}>
+          <span className="bar-label">{label(row)}</span>
+          <b>{formatShare(value(row))}</b>
+          <span className="bar" aria-hidden="true"><span style={{ width: `${(value(row) / max) * 100}%` }} /></span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+// Where attacks land. A separate list from the routes: layer 3 has no origin-to-target pairs to join.
+function TargetsPanel({ targets, filters }) {
+  return (
+    <Panel id="targets" title="Where attacks land, last 24 hours">
+      {Object.entries(LAYER_LABELS).map(([layer, label]) => {
+        const rows = targets[layer].filter((row) => matchesTarget(filters, row)).slice(0, 6);
+        return (
+          <div className="group" key={layer}>
+            <h3><span className="swatch" style={{ background: `var(--data-${layer})` }} aria-hidden="true" />{label}</h3>
+            {rows.length ? <Bars rows={rows} label={(row) => row.country.name} /> : <p className="empty">Nothing matches the filters.</p>}
+          </div>
+        );
+      })}
+    </Panel>
+  );
+}
+
+// This week against the week before, in share points. The arrow and the word say it, not the colour.
+function VectorsPanel({ vectors, trend }) {
+  return (
+    <Panel id="vectors" title="Network attack vectors" defaultOpen={false}>
+      {trend.length ? (
+        <ul className="rows">
+          {trend.map((row) => (
+            <li key={row.name} className="trend-row">
+              <span>{row.name}</span>
+              <b>{formatShare(row.share)}</b>
+              <span className="change"><Icon name={row.change > 0 ? 'up' : row.change < 0 ? 'down' : 'dash'} />{formatChange(row.change)} vs last week</span>
+            </li>
+          ))}
+        </ul>
+      ) : vectors.length ? <Bars rows={vectors} label={(row) => row.name} /> : <p className="empty">No vector data yet.</p>}
+    </Panel>
+  );
+}
+
+function SizesPanel({ sizes }) {
+  const groups = [['Duration', sizes.duration], ['Bitrate', sizes.bitrate]];
+  return (
+    <Panel id="sizes" title="Attack size, network layer" defaultOpen={false}>
+      {groups.map(([title, rows]) => (
+        <div className="group" key={title}>
+          <h3>{title}</h3>
+          {rows.length ? <Bars rows={rows} label={(row) => humanizeBucket(row.name)} /> : <p className="empty">No data yet.</p>}
+        </div>
+      ))}
     </Panel>
   );
 }
@@ -115,6 +182,7 @@ function SourcesPanel({ status, now }) {
           <span className="state tone-none"><Icon name="dash" />{status.geo === 'city' ? 'City level' : 'Country level'}</span>
         </li>
       </ul>
+      <ModelCard classifier={status.classifier} now={now} />
     </Panel>
   );
 }
@@ -124,8 +192,12 @@ export default function Panels({ feed, events, points, filters, now, onSelect, o
   return (
     <>
       <RoutesPanel feed={feed} filters={filters} onSelect={onSelect} onHoverRoute={onHoverRoute} />
-      <RecentPanel events={events} filters={filters} onSelect={onSelect} />
+      <TargetsPanel targets={feed.targets} filters={filters} />
       {feed.threats.total > 0 && <NetworksPanel points={points} onSelect={onSelect} />}
+      <Panel id="lookup" title="IP lookup"><Lookup /></Panel>
+      <VectorsPanel vectors={feed.vectors} trend={feed.trend} />
+      <SizesPanel sizes={feed.sizes} />
+      <RecentPanel events={events} filters={filters} onSelect={onSelect} />
       <SourcesPanel status={feed.status} now={now} />
       <footer className="credits">
         <p>Network-layer origins are where Cloudflare received the traffic, because source IPs can be spoofed.</p>

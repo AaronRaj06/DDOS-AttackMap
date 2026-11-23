@@ -21,6 +21,7 @@ import '../styles/dashboard.css';
 const Globe = lazy(() => import('../components/Globe'));
 const MapView = lazy(() => import('../components/MapView'));
 const Panels = lazy(() => import('../components/Panels'));
+const Timeline = lazy(() => import('../components/Timeline'));
 // Loaded when first needed: a card appears on a click, the sheet only on a phone
 const InfoCard = lazy(() => import('../components/InfoCard'));
 const Sheet = lazy(() => import('../components/Sheet'));
@@ -142,6 +143,7 @@ export default function Dashboard() {
             {selection && <Suspense fallback={null}><InfoCard item={selection} live={mode === 'live'} now={now} onClose={closeCard} /></Suspense>}
           </div>
           <Legend hasPoints={threats.total > 0} hasFlagged={threats.flagged > 0} />
+          <Suspense fallback={null}><Timeline status={status} spikes={spikes} now={now} reducedMotion={motion.reduced} /></Suspense>
           {narrow && !kiosk && (
             <button type="button" className="btn sheet-open" onClick={() => setSheet(true)}>Routes, sources and details</button>
           )}

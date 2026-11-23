@@ -132,3 +132,9 @@ test('the bundled land becomes one clean path', () => {
   const nums = [...path.matchAll(/-?\d+\.\d/g)].map(Number);
   assert.ok(nums.every((n) => n >= -0.1 && n <= 360.1), 'every coordinate is inside the 360 x 180 map');
 });
+
+test('the tile sentence is short and complete', async () => {
+  const { spikeShort } = await import('../src/utils/labels.js');
+  assert.equal(spikeShort({ layer: 'l7', ratio: 4.7, start: '2026-11-23T00:30:00.000Z' }), 'L7 4.7x normal since 11-23 00:30 UTC');
+  assert.equal(spikeShort({ layer: 'l3', ratio: null, start: '2026-11-23T00:30:00.000Z' }), 'L3/4 far above normal since 11-23 00:30 UTC');
+});

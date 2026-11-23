@@ -1,12 +1,12 @@
 import { formatAge } from '../utils/age';
-import { formatShare, LAYER_SHORT, spikeSentence } from '../utils/labels';
+import { formatShare, LAYER_SHORT, spikeShort } from '../utils/labels';
 import { SEVERITY, topOrigin } from '../utils/severity';
 import Icon from './Icon';
 
 function threatDetail(status, spikes) {
   if (status.mode === 'demo') return 'Needs a Cloudflare Radar token';
   const first = spikes.active[0];
-  if (spikes.status === 'spike' && first) return spikeSentence(first);
+  if (spikes.status === 'spike' && first) return spikeShort(first);
   if (spikes.status === 'elevated') return 'The latest reading is above the usual range';
   if (spikes.status === 'normal') return 'Within the usual range for the last day';
   return 'Waiting for enough Radar history';
