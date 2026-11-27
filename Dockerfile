@@ -13,6 +13,10 @@ RUN npm ci --omit=dev && npm cache clean --force
 COPY backend/ ./
 COPY --from=frontend /app/frontend/dist /app/frontend/dist
 RUN mkdir -p .cache data/geo && chown node:node .cache data/geo
+# GEO=1 downloads the DB-IP Lite city and ASN databases (about 140 MB) into the image, for city-level
+# locations, IP lookup and the classifier. Off by default, so CI and local builds stay small and offline.
+ARG GEO=0
+RUN if [ "$GEO" = 1 ]; then node scripts/updateGeo.js; fi
 USER node
 EXPOSE 5050
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --start-interval=2s \

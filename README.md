@@ -1,5 +1,7 @@
 # Global DoS Attack Map
 
+[![CI](https://github.com/AaronRaj06/DDOS-AttackMap/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/AaronRaj06/DDOS-AttackMap/actions/workflows/ci.yml)
+
 A real-time globe of denial-of-service trends. It replays country-to-country attack routes from
 [Cloudflare Radar](https://radar.cloudflare.com/), plots abusive IPs from
 [AbuseIPDB](https://www.abuseipdb.com/) at their approximate location, and can train a classifier
@@ -346,6 +348,24 @@ CI runs it on every push.
 - `/health` is a liveness check and stays 200 when a data source fails. Alert on `mode`,
   `radar.state` and `abuse.state` in its body.
 - Radar data is licensed for **non-commercial** use. Check AbuseIPDB's terms for your use case too.
+
+## Deploying
+
+`fly.toml` deploys the Docker image to [Fly.io](https://fly.io) as one machine that never sleeps, behind
+Fly's HTTPS, with the DB-IP databases built in (`GEO=1`). Fly bills by usage; check
+[fly.io/docs/about/pricing](https://fly.io/docs/about/pricing/) before you start.
+
+```bash
+brew install flyctl                 # or see fly.io/docs/flyctl/install
+fly auth signup                     # or: fly auth login
+fly launch --copy-config --no-deploy   # keeps fly.toml; pick another app name if asked
+fly secrets set CLOUDFLARE_API_TOKEN=... ABUSEIPDB_KEY=...
+fly deploy
+fly open /tour
+```
+
+Without the two secrets it runs in demo mode, labelled as such. The classifier stays off unless you commit
+a trained `backend/ml/model.json`; it holds weights and vocabularies, never an IP address.
 
 ## Credits
 
