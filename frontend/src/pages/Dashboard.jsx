@@ -105,6 +105,7 @@ export default function Dashboard() {
       <a className="skip-link" href="#main">Skip to main content</a>
       <Header
         connection={feed.connection}
+        lastEvent={feed.received || null}
         mode={mode}
         paused={paused}
         onPause={togglePause}

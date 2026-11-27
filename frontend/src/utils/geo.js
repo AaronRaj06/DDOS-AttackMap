@@ -21,7 +21,8 @@ export function arcPoints(from, to, steps = 64) {
     length = Math.hypot(...side);
   }
   const unit = side.map((value) => value / length);
-  const height = 0.03 + 0.13 * angle;
+  // capped so the highest arc stays inside the radius the camera fits (1.22), and never leaves the frame
+  const height = Math.min(0.2, 0.03 + 0.13 * angle);
 
   return Array.from({ length: steps + 1 }, (_, i) => {
     const t = i / steps;

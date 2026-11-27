@@ -46,3 +46,7 @@ backend/data/training/
 # Playwright output
 frontend/test-results/
 frontend/playwright-report/
+
+# Local tooling
+.claude/
+.impeccable/

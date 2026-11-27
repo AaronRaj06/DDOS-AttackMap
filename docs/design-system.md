@@ -32,24 +32,24 @@ and focus visibility, one concern per query.
 
 ## Colour roles
 
-Contrast is WCAG 2.x, measured on the three surfaces: page `--bg-0` `#0f0f1e`, panel `--bg-1`
-`#151628` and raised `--bg-2` `#1d1f35`. Text needs 4.5:1, and everything else that carries meaning
+Contrast is WCAG 2.x, measured on the three surfaces: page `--bg-0` `#0e1012`, panel `--bg-1`
+`#14171a` and raised `--bg-2` `#1c2024`. The surfaces are graphite, not navy, so the data colours on the globe are the only real colour on screen. Text needs 4.5:1, and everything else that carries meaning
 needs 3:1.
 
 | Token | Value | Page | Panel | Raised |
 |---|---|---|---|---|
-| `--text-1` | `#f3f4f8` | 17.3 | 16.2 | 14.7 |
-| `--text-2` | `#c3c9d8` | 11.4 | 10.8 | 9.7 |
-| `--text-3` (muted, never smaller than 12px) | `#a3abc2` | 8.3 | 7.8 | 7.0 |
-| `--accent` (brand coral) | `#ff6b6b` | 6.8 | 6.4 | 5.8 |
-| `--accent-hover` | `#ff8a8a` | 8.4 | 7.9 | 7.1 |
-| `--link` | `#ff9b9b` | 9.4 | 8.8 | 8.0 |
-| `--border-control` (edges of controls) | `#7a82a3` | 5.0 | 4.7 | 4.3 |
-| `--focus` (ring) | `#7cc8f2` | 10.3 | 9.7 | 8.8 |
+| `--text-1` | `#eef0f2` | 16.7 | 15.7 | 14.3 |
+| `--text-2` | `#c2c7cd` | 11.2 | 10.6 | 9.6 |
+| `--text-3` (muted, never smaller than 12px) | `#9ea4ac` | 7.6 | 7.2 | 6.5 |
+| `--accent` (brand coral) | `#ff6b6b` | 6.9 | 6.5 | 5.9 |
+| `--accent-hover` | `#ff8a8a` | 8.4 | 7.9 | 7.2 |
+| `--link` | `#ff9b9b` | 9.5 | 8.9 | 8.1 |
+| `--border-control` (edges of controls) | `#6b7179` | 3.9 | 3.7 | 3.3 |
+| `--focus` (ring) | `#7cc8f2` | 10.4 | 9.8 | 8.9 |
 | `--text-on-accent` on `--accent` | | 6.8 | | |
-| `--map-land` on the globe core | | 4.8 | | |
+| `--map-land` on the globe core | | 5.0 | | |
 
-`--border-subtle` (`#2a2d47`, 1.3:1) is decoration only. A control's edge always uses
+`--border-subtle` (`#262a2f`, 1.3:1) is decoration only. A control's edge always uses
 `--border-control`. Surfaces are solid colours, not translucent layers, so contrast is the same wherever
 a panel sits.
 
@@ -90,7 +90,7 @@ the review checklist below does.
 | Normal | `--sev-normal` | `#2bc4c4` | 8.8 | check, "Normal" |
 | Elevated | `--sev-elevated` | `#f0e442` | 14.3 | triangle, "Elevated" |
 | Spike | `--sev-spike` | `#ff4d4f` | 5.8 | burst, "Spike" |
-| Unavailable | `--sev-unavailable` | `#a3abc2` | 8.3 | dash, "No data" |
+| Unavailable | `--sev-unavailable` | `#9ea4ac` | 7.6 | dash, "No data" |
 
 It runs cool, then warm, then hot. The worst pair is elevated against spike under deuteranopia, at
 dE 20. Green was rejected because green against red measured dE 8. Source state reuses it:

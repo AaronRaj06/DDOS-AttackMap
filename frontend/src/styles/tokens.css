@@ -7,21 +7,21 @@
 :root {
   color-scheme: dark;
 
-  /* Surfaces */
-  --bg-0: #0f0f1e;            /* page */
-  --bg-1: #151628;            /* panels */
-  --bg-2: #1d1f35;            /* raised: popovers, hover, sheets */
-  --bg-globe: #11162a;        /* the globe's opaque core */
-  --scrim: rgb(5 6 15 / 0.72);
+  /* Surfaces: graphite, so the data colours on the globe carry the colour */
+  --bg-0: #0e1012;            /* page */
+  --bg-1: #14171a;            /* panels */
+  --bg-2: #1c2024;            /* raised: popovers, hover, sheets */
+  --bg-globe: #0f1215;        /* the globe's opaque core */
+  --scrim: rgb(6 7 8 / 0.72);
 
   /* Borders. Subtle is decoration only. A control's edge uses --border-control. */
-  --border-subtle: #2a2d47;
-  --border-control: #7a82a3;
+  --border-subtle: #262a2f;
+  --border-control: #6b7179;
 
   /* Text, all at least 4.5:1 on every surface */
-  --text-1: #f3f4f8;
-  --text-2: #c3c9d8;
-  --text-3: #a3abc2;
+  --text-1: #eef0f2;
+  --text-2: #c2c7cd;
+  --text-3: #9ea4ac;
   --text-on-accent: #1a0d12;
 
   /* Brand accent (the existing coral) */
@@ -43,7 +43,7 @@
   --sev-normal-bg: rgb(43 196 196 / 0.14);
   --sev-elevated-bg: rgb(240 228 66 / 0.14);
   --sev-spike-bg: rgb(255 77 79 / 0.16);
-  --sev-unavailable: #a3abc2;
+  --sev-unavailable: #9ea4ac;
 
   /* Source state */
   --status-ok: var(--sev-normal);

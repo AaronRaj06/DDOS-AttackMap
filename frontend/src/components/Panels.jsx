@@ -18,7 +18,7 @@ function SourceState({ state }) {
 function RoutesPanel({ feed, filters, onSelect, onHoverRoute }) {
   const live = feed.status.mode === 'live';
   return (
-    <Panel id="routes" title={live ? 'Top routes, last 24 hours' : 'Top routes (demo)'}>
+    <Panel id="routes" title={live ? 'Top routes, last 24 hours' : 'Top routes, demo data'}>
       {Object.entries(LAYER_LABELS).map(([layer, label]) => {
         const rows = feed.corridors.filter((route) => route.layer === layer && matchesRoute(filters, route)).slice(0, 5);
         return (
@@ -173,7 +173,7 @@ function SourcesPanel({ status, now }) {
           <li key={name}>
             <span className="source-name">{name}</span>
             <SourceState state={state} />
-            <span className="age">{updatedAt ? `updated ${formatAge(updatedAt, now)}` : 'no update yet'}</span>
+            <span className="age">{updatedAt ? `Updated ${formatAge(updatedAt, now)}` : 'No update yet'}</span>
             {error && <span className="source-error">{error}</span>}
           </li>
         ))}
@@ -201,11 +201,13 @@ export default function Panels({ feed, events, points, filters, now, onSelect, o
       <SourcesPanel status={feed.status} now={now} />
       <footer className="credits">
         <p>Network-layer origins are where Cloudflare received the traffic, because source IPs can be spoofed.</p>
-        <p>
-          Data: <a href="https://radar.cloudflare.com/" target="_blank" rel="noreferrer">Cloudflare Radar</a> (<a href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank" rel="noreferrer">CC BY-NC 4.0</a>),{' '}
-          <a href="https://www.abuseipdb.com/" target="_blank" rel="noreferrer">AbuseIPDB</a>,{' '}
-          <a href="https://db-ip.com/" target="_blank" rel="noreferrer">IP geolocation by DB-IP</a>, Natural Earth.
-        </p>
+        <p>Data from</p>
+        <ul>
+          <li><a href="https://radar.cloudflare.com/" target="_blank" rel="noreferrer">Cloudflare Radar</a>, <a href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank" rel="noreferrer">CC BY-NC 4.0</a></li>
+          <li><a href="https://www.abuseipdb.com/" target="_blank" rel="noreferrer">AbuseIPDB</a></li>
+          <li><a href="https://db-ip.com/" target="_blank" rel="noreferrer">IP geolocation by DB-IP</a></li>
+          <li>Natural Earth</li>
+        </ul>
       </footer>
     </>
   );

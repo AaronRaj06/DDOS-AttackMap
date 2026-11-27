@@ -23,6 +23,10 @@ h1, h2, h3, p, ul, ol, dl, dd, figure {
   margin: 0;
 }
 
+h1, h2, h3, strong, b {
+  font-weight: 500;
+}
+
 ul, ol {
   padding: 0;
   list-style: none;
@@ -139,28 +143,39 @@ a:hover {
 .badge {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  min-width: 6.5rem;
-  min-height: 1.75rem;
-  padding: 0 var(--space-3);
-  border: 1px solid var(--border-control);
-  border-radius: var(--radius-pill);
-  font-size: var(--text-xs);
+  gap: var(--space-2);
   color: var(--text-2);
+  font-size: var(--text-xs);
 }
 
-.badge.connected,
-.badge.mode-live {
-  border-color: var(--status-ok);
-  color: var(--status-ok);
+/* The signature: a status dot that flashes once when an event arrives, and never loops */
+.badge::before {
+  content: '';
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--text-3);
 }
 
-.badge.connecting,
-.badge.reconnecting,
-.badge.mode-demo,
-.badge.mode-unavailable {
-  border-color: var(--status-warn);
-  color: var(--status-warn);
+.badge.connected::before,
+.badge.mode-live::before {
+  background: var(--status-ok);
+}
+
+.badge.connecting::before,
+.badge.reconnecting::before,
+.badge.mode-demo::before,
+.badge.mode-unavailable::before {
+  background: var(--status-warn);
+}
+
+.badge.flash::before {
+  animation: flash calc(var(--dur-base) * 3) var(--ease-out);
+}
+
+@keyframes flash {
+  from { box-shadow: 0 0 0 0.25rem color-mix(in srgb, var(--status-ok), transparent 50%); }
+  to { box-shadow: 0 0 0 0.25rem transparent; }
 }
 
 .skeleton {

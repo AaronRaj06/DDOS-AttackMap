@@ -4,7 +4,7 @@ import Icon from './Icon';
 const CONNECTION = { connecting: 'Connecting', connected: 'Connected', reconnecting: 'Reconnecting' };
 const MODE = { demo: 'Demo data', live: 'Radar trends', unavailable: 'No data' };
 
-export default function Header({ connection, mode, paused, onPause, view, onView, reduced, onMotion, kiosk, onKiosk }) {
+export default function Header({ connection, lastEvent, mode, paused, onPause, view, onView, reduced, onMotion, kiosk, onKiosk }) {
   const [open, setOpen] = useState(false);
   const toggleRef = useRef(null);
   useEffect(() => {
@@ -23,7 +23,8 @@ export default function Header({ connection, mode, paused, onPause, view, onView
     <header className="header">
       <h1>Global DoS Attack Map</h1>
       <div className="header-badges">
-        <span className={`badge ${connection}`} role="status">{CONNECTION[connection]}</span>
+        {/* re-keyed per event, so the dot flashes once each time one arrives */}
+        <span key={lastEvent ?? 'none'} className={`badge ${connection}${lastEvent ? ' flash' : ''}`} role="status">{CONNECTION[connection]}</span>
         {/* always present, so the header does not re-wrap when the server reports its mode */}
         <span className={`badge ${mode ? `mode-${mode}` : ''}`}>{mode ? MODE[mode] : 'Checking'}</span>
       </div>
