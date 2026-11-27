@@ -364,6 +364,13 @@ fly deploy
 fly open /tour
 ```
 
+**Free option: Render.** `render.yaml` deploys the same image on Render's free plan. In the Render
+dashboard choose New → Blueprint, pick this repository, and paste the two keys when asked. The free plan
+sleeps after 15 idle minutes (an open dashboard or tour keeps it awake) and takes about a minute to wake.
+It has no disk, so each wake downloads the AbuseIPDB blacklist again, which counts against that API's
+daily download limit, and spike history starts over, so the spike status stays "unavailable" until it has
+run for about six hours without sleeping. Fine for a demo link; use Fly or a paid plan for an always-on map.
+
 Without the two secrets it runs in demo mode, labelled as such. The classifier stays off unless you commit
 a trained `backend/ml/model.json`; it holds weights and vocabularies, never an IP address.
 
