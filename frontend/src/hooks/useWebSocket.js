@@ -1,84 +1,50 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useReducer, useState } from 'react';
+import { feedReducer, initialFeed } from '../utils/feed.js';
 
-export function useWebSocket(url) {
-    const wsRef = useRef(null);
-    const [isConnected, setIsConnected] = useState(false);
-    const [lastMessage, setLastMessage] = useState(null);
-    const [events, setEvents] = useState([]);
-    const reconnectTimeoutRef = useRef(null);
+const MAX_RETRY_MS = 30_000;
 
-    const connect = useCallback(() => {
+export function useWebSocket(path) {
+  const [feed, dispatch] = useReducer(feedReducer, initialFeed);
+  const [connection, setConnection] = useState('connecting');
+
+  useEffect(() => {
+    let socket;
+    let timer;
+    let attempts = 0;
+    let disposed = false;
+
+    function connect() {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      socket = new WebSocket(`${protocol}//${window.location.host}${path}`);
+      socket.onopen = () => {
+        attempts = 0;
+        setConnection('connected');
+      };
+      socket.onmessage = ({ data }) => {
         try {
-            const ws = new WebSocket(url);
-
-            ws.onopen = () => {
-                console.log('✅ WebSocket connected');
-                setIsConnected(true);
-            };
-
-            ws.onmessage = (event) => {
-                try {
-                    const message = JSON.parse(event.data);
-                    setLastMessage(message);
-
-                    // Add to events list if it's an attack event
-                    if (message.type === 'event' || message.type === 'event_update') {
-                        setEvents(prev => {
-                            // Update existing event or add new one
-                            const existingIndex = prev.findIndex(e => e.id === message.data.id);
-                            if (existingIndex >= 0) {
-                                // Update existing event with enrichment
-                                const updated = [...prev];
-                                updated[existingIndex] = message.data;
-                                return updated;
-                            }
-                            // Add new event (keep last 100)
-                            return [...prev.slice(-99), message.data];
-                        });
-                    }
-                } catch (err) {
-                    console.error('Error parsing WebSocket message:', err);
-                }
-            };
-
-            ws.onerror = (error) => {
-                console.error('❌ WebSocket error:', error);
-            };
-
-            ws.onclose = () => {
-                console.log('🔌 WebSocket disconnected');
-                setIsConnected(false);
-
-                // Auto-reconnect after 3 seconds
-                reconnectTimeoutRef.current = setTimeout(() => {
-                    console.log('🔄 Attempting to reconnect...');
-                    connect();
-                }, 3000);
-            };
-
-            wsRef.current = ws;
-        } catch (err) {
-            console.error('Failed to create WebSocket:', err);
+          dispatch(JSON.parse(data));
+        } catch (error) {
+          console.error('Invalid message from the server', error);
         }
-    }, [url]);
+      };
+      socket.onclose = () => {
+        if (disposed) return;
+        setConnection('reconnecting');
+        // Jitter keeps every open tab from reconnecting at the same instant after a deploy
+        const delay = Math.min(1000 * 2 ** attempts++, MAX_RETRY_MS);
+        timer = setTimeout(connect, delay * (0.5 + Math.random() / 2));
+      };
+    }
 
-    useEffect(() => {
-        connect();
+    // Deferred, so StrictMode's throwaway mount never opens a socket
+    timer = setTimeout(connect, 0);
 
-        return () => {
-            if (reconnectTimeoutRef.current) {
-                clearTimeout(reconnectTimeoutRef.current);
-            }
-            if (wsRef.current) {
-                wsRef.current.close();
-            }
-        };
-    }, [connect]);
-
-    return {
-        isConnected,
-        lastMessage,
-        events,
-        ws: wsRef.current
+    return () => {
+      disposed = true;
+      clearTimeout(timer);
+      socket?.close();
     };
+  }, [path]);
+
+  return { ...feed, connection };
 }

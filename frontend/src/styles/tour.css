@@ -1,0 +1,736 @@
+/* The tour's 2D page: one readable column, the dashboard's tokens, nothing new to learn */
+
+.tour-header {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-header);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  min-height: var(--header-h);
+  padding: 0 var(--space-4);
+  background: var(--bg-0);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.tour-brand {
+  font-weight: 500;
+}
+
+.btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--text-on-accent);
+}
+
+.btn.primary:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+  color: var(--text-on-accent);
+}
+
+.tour {
+  max-width: 44rem;
+  margin: 0 auto;
+  padding: 0 var(--space-4) var(--space-8);
+  font-size: var(--text-md);
+}
+
+.tour-hero {
+  padding: calc(var(--space-8) * 2) 0 var(--space-8);
+}
+
+.tour h1 {
+  font-size: clamp(var(--text-xl), 6vw, 3rem);
+  line-height: var(--leading-tight);
+}
+
+.tour-hero p {
+  margin-top: var(--space-4);
+  color: var(--text-2);
+  font-size: var(--text-lg);
+}
+
+.tour-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--space-6);
+}
+
+.tour-nav ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-2);
+  padding: var(--space-3) 0;
+  border-block: 1px solid var(--border-subtle);
+  counter-reset: step;
+}
+
+.tour-nav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--target-min);
+  padding: 0 var(--space-2);
+  color: var(--text-2);
+  text-decoration: none;
+}
+
+.tour-nav a:hover {
+  color: var(--text-1);
+}
+
+.tour-nav li {
+  counter-increment: step;
+}
+
+.tour-nav a::before {
+  content: counter(step) '.';
+  margin-right: var(--space-1);
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+}
+
+.tour-step {
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-8) 0;
+  border-bottom: 1px solid var(--border-subtle);
+  scroll-margin-top: var(--header-h);
+}
+
+.tour-step:last-child {
+  border-bottom: 0;
+}
+
+.tour-step h2 {
+  font-size: var(--text-xl);
+  line-height: var(--leading-tight);
+}
+
+.tour-step p {
+  color: var(--text-2);
+}
+
+.tour-step > .btn {
+  justify-self: start;
+}
+
+.tour-points {
+  display: grid;
+  gap: var(--space-2);
+  padding-left: var(--space-4);
+  border-left: 2px solid var(--accent);
+}
+
+.tour-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.tour-cards div {
+  padding: var(--space-4);
+  background: var(--bg-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.tour-cards dt {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+}
+
+.tour-cards dd {
+  margin: var(--space-2) 0 0;
+  color: var(--text-2);
+  font-size: var(--text-base);
+}
+
+/* Figures: drawings of the idea, labelled as illustrative in their caption */
+.tour-figure {
+  padding: var(--space-4);
+  background: var(--bg-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.tour-figure svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.tour-figure figcaption {
+  margin-top: var(--space-3);
+  color: var(--text-3);
+  font-size: var(--text-sm);
+}
+
+.tour-figure path,
+.tour-figure rect {
+  fill: none;
+}
+
+.fig-invented {
+  stroke: var(--text-3);
+  stroke-width: 1.5;
+}
+
+.fig-l3 {
+  stroke: var(--data-l3);
+}
+
+.fig-l7 {
+  stroke: var(--data-l7);
+}
+
+.tour-figure .fig-shell {
+  stroke: var(--border-control);
+}
+
+.fig-dot {
+  fill: var(--data-reported);
+}
+
+.fig-refused {
+  stroke: var(--text-3);
+  stroke-width: 2;
+  stroke-dasharray: 4 4;
+}
+
+.fig-cross {
+  stroke: var(--sev-spike);
+  stroke-width: 3;
+}
+
+.tour-figure .fig-band {
+  fill: var(--sev-normal-bg);
+  stroke: var(--sev-normal);
+  stroke-dasharray: 3 3;
+}
+
+.fig-series {
+  stroke: var(--text-1);
+  stroke-width: 2;
+}
+
+.tour-figure .fig-spike {
+  fill: var(--sev-spike-bg);
+  stroke: var(--sev-spike);
+}
+
+.fig-label,
+.fig-stamp {
+  fill: var(--text-2);
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.fig-stamp {
+  fill: var(--sev-spike);
+  font-size: 16px;
+  letter-spacing: 0.05em;
+}
+
+.fig-factors {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.fig-factors li {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(6rem, 1fr) 4rem;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--text-sm);
+}
+
+.fig-factor-name {
+  color: var(--text-2);
+}
+
+.fig-factor-effect {
+  color: var(--text-1);
+  font-family: var(--font-mono);
+}
+
+/* A centre line: raising factors grow right, lowering ones grow left */
+.fig-factor-track {
+  position: relative;
+  height: 0.75rem;
+  background: linear-gradient(var(--border-control), var(--border-control)) center / 1px 100% no-repeat;
+}
+
+.fig-bar {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: var(--w);
+}
+
+.fig-bar.up {
+  left: 50%;
+  background: var(--data-flagged);
+}
+
+/* Lowering bars are hatched, so direction is not told by colour alone */
+.fig-bar.down {
+  right: 50%;
+  background: repeating-linear-gradient(135deg, var(--data-l3) 0 3px, transparent 3px 6px);
+}
+
+@media (max-width: 40rem) {
+  .fig-factors li {
+    grid-template-columns: 1fr 4rem;
+  }
+
+  .fig-factor-track {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}
+
+/* ---- The 3D tour: a fixed globe stage, scenes scrolling over it ---- */
+
+:root[data-motion='full'] {
+  scroll-behavior: smooth;
+}
+
+.tour3d-header {
+  flex-wrap: wrap;
+  gap: 0 var(--space-4);
+}
+
+.tour-pipeline {
+  flex: 1;
+  min-width: 0;
+}
+
+.tour-pipeline ol {
+  display: flex;
+  gap: var(--space-1);
+  overflow-x: auto;
+  scrollbar-width: none;
+  counter-reset: step;
+}
+
+.tour-pipeline li {
+  counter-increment: step;
+}
+
+.tour-pipeline a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--target-min);
+  padding: 0 var(--space-2);
+  color: var(--text-3);
+  text-decoration: none;
+  white-space: nowrap;
+  border-bottom: 2px solid transparent;
+}
+
+.tour-pipeline a::before {
+  content: counter(step) '.';
+  margin-right: var(--space-1);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+.tour-pipeline a:hover {
+  color: var(--text-1);
+}
+
+/* The current step: brighter text and an underline, so it does not rely on colour */
+.tour-pipeline a[aria-current='step'] {
+  color: var(--text-1);
+  border-bottom-color: var(--accent);
+}
+
+.tour-tools {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.tour-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}
+
+/* Hollow for illustrative, filled for live: the shape says it as well as the colour */
+.tour-badge-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border: 1px solid var(--text-3);
+  border-radius: var(--radius-pill);
+}
+
+.tour-badge[data-live='true'] .tour-badge-dot {
+  background: var(--sev-normal);
+  border-color: var(--sev-normal);
+}
+
+.tour-stage {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.tour-scenes {
+  position: relative;
+  z-index: 1;
+}
+
+.tour-scene {
+  display: flex;
+  align-items: center;
+  min-height: calc(100svh - var(--header-h));
+  padding: var(--space-8) var(--space-4);
+}
+
+.tour-caption {
+  display: grid;
+  gap: var(--space-3);
+  max-width: 28rem;
+  padding: var(--space-6);
+  background: var(--bg-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.tour-caption h2 {
+  font-size: var(--text-xl);
+  line-height: var(--leading-tight);
+}
+
+.tour-caption p {
+  color: var(--text-2);
+  font-size: var(--text-md);
+}
+
+.tour-caption > .btn {
+  justify-self: start;
+}
+
+.tour-scene-hero .tour-caption {
+  max-width: 36rem;
+  background: var(--scrim);
+}
+
+.tour-scene-hero h1 {
+  font-size: clamp(var(--text-xl), 6vw, 3.25rem);
+  line-height: var(--leading-tight);
+}
+
+.tour-scene-hero p {
+  font-size: var(--text-lg);
+}
+
+
+/* Wide screens: captions on the left, the globe to their right */
+@media (min-width: 64rem) {
+  .tour-stage {
+    left: 34%;
+  }
+
+  .tour-scene {
+    padding-left: max(var(--space-8), 4vw);
+  }
+}
+
+/* Narrow screens: the steps get their own row, and captions sit low so the globe stays in view */
+@media (max-width: 63.99rem) {
+  .tour-pipeline {
+    order: 3;
+    flex-basis: 100%;
+  }
+
+  .tour-scene {
+    align-items: flex-end;
+  }
+}
+
+.tour-tools .btn {
+  white-space: nowrap;
+}
+
+@media (max-width: 40rem) {
+  .tour-wide-only {
+    display: none;
+  }
+
+  .tour-tools .btn.quiet {
+    width: var(--target-min);
+    padding: 0;
+  }
+
+  .tour-tools {
+    margin-left: auto;
+  }
+}
+
+/* Per-scene source badge: live is a filled dot, illustrative and invented are hollow */
+.tour-source {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  justify-self: start;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-pill);
+  color: var(--text-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+.tour-source[data-source='live'] .tour-badge-dot {
+  background: var(--sev-normal);
+  border-color: var(--sev-normal);
+}
+
+/* "Invented" is a warning stamp: dashed edge, spike colour, and the word itself */
+.tour-source[data-source='invented'] {
+  border-style: dashed;
+  border-color: var(--sev-spike);
+  color: var(--sev-spike);
+}
+
+.tour-source[data-source='invented'] .tour-badge-dot {
+  border-color: var(--sev-spike);
+}
+
+.tour-caption .tour-tick {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+}
+
+/* A ring that pulses once each time the scene is entered: the refresh tick */
+.tour-tick::before {
+  content: '';
+  width: 0.75rem;
+  height: 0.75rem;
+  border: 2px solid var(--data-l3);
+  border-radius: var(--radius-pill);
+}
+
+.tour-scene[data-active='true'] .tour-tick::before {
+  animation: tour-tick calc(var(--dur-arc) * 1.5) var(--ease-out) 1;
+}
+
+@keyframes tour-tick {
+  from { box-shadow: 0 0 0 0 var(--data-l3); }
+  to { box-shadow: 0 0 0 0.75rem transparent; }
+}
+
+.tour-caption .tour-origin {
+  color: var(--text-1);
+  font-size: var(--text-lg);
+  line-height: var(--leading-tight);
+}
+
+.tour-origin-place {
+  font-weight: 500;
+}
+
+.tour-origin s {
+  color: var(--text-3);
+}
+
+.tour-origin strong {
+  color: var(--data-l3);
+}
+
+.tour-caption .tour-loading {
+  min-height: 1lh;
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+}
+
+/* The classifier scene stays put while the visitor inspects networks */
+.tour-scene-pinned {
+  align-items: flex-start;
+  min-height: 170svh;
+}
+
+@media (min-width: 64rem) {
+  .tour-scene-pinned .tour-caption {
+    position: sticky;
+    top: calc(var(--header-h) + var(--space-4));
+  }
+}
+
+.tour-caption .tour-question {
+  color: var(--text-1);
+  font-size: var(--text-lg);
+  line-height: var(--leading-tight);
+}
+
+.tour-caption .tour-note {
+  color: var(--text-3);
+  font-size: var(--text-sm);
+}
+
+.tour-networks {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.tour-networks .btn {
+  justify-content: flex-start;
+  font-family: var(--font-mono);
+}
+
+.tour-network {
+  flex: 1;
+  text-align: left;
+}
+
+.tour-score {
+  color: var(--text-2);
+}
+
+.tour-networks .btn[aria-pressed='true'] .tour-score {
+  color: var(--text-on-accent);
+}
+
+.tour-explain {
+  display: grid;
+  gap: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.tour-explain code,
+.tour-caption .tour-formula {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+}
+
+.tour-caption .tour-formula {
+  color: var(--text-3);
+  overflow-wrap: anywhere;
+}
+
+.tour-explain .fig-factors li {
+  grid-template-columns: minmax(0, 1.3fr) minmax(4rem, 1fr) 6.5rem;
+}
+
+/* On the selected (accent-filled) button the ring or disc takes the button's text colour */
+.tour-networks .btn[aria-pressed='true'] .mark circle[fill='none'] {
+  stroke: var(--text-on-accent);
+}
+
+.tour-networks .btn[aria-pressed='true'] .mark circle:not([fill='none']) {
+  fill: var(--text-on-accent);
+}
+
+/* Spike scene key: a dashed line for the typical level, a shaded block for a spike */
+.tour-key {
+  display: grid;
+  gap: var(--space-2);
+  color: var(--text-2);
+  font-size: var(--text-sm);
+}
+
+.tour-key li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.tour-key-level,
+.tour-key-spike {
+  flex: none;
+  width: 1.25rem;
+}
+
+.tour-key-level {
+  border-top: 2px dashed var(--sev-normal);
+}
+
+.tour-key-spike {
+  height: 0.75rem;
+  background: var(--sev-spike-bg);
+  border: 1px solid var(--sev-spike);
+}
+
+.tour-outputs,
+.tour-stations {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.tour-outputs dt,
+.tour-stations dt {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+}
+
+.tour-outputs dd,
+.tour-stations dd {
+  margin: var(--space-1) 0 0;
+  color: var(--text-2);
+  font-size: var(--text-base);
+}
+
+.tour-stations {
+  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+}
+
+.tour-caption:has(.tour-stations) {
+  max-width: 40rem;
+}
+
+.tour-outputs pre,
+.tour-step pre {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  overflow-x: auto;
+  background: var(--bg-0);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Phones: the globe keeps the top half to itself, and captions come up from below it instead of covering it */
+@media (max-width: 40rem) {
+  /* below the phone header, which wraps to three rows */
+  .tour-stage {
+    top: 7rem;
+    bottom: 45svh;
+  }
+
+  .tour-explain .fig-factors li {
+    grid-template-columns: 1fr 6.5rem;
+  }
+
+  .tour-scene,
+  .tour-scene-pinned {
+    align-items: flex-end;
+    padding: 55svh var(--space-3) var(--space-4);
+  }
+
+  .tour-caption {
+    padding: var(--space-4);
+  }
+}

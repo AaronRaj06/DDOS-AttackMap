@@ -1,0 +1,20 @@
+# Render free tier: New > Blueprint, pick this repo, and enter the two keys when asked.
+# shortcut: the free plan sleeps after 15 idle minutes and has no disk, so each wake re-downloads the
+# blacklist and restarts spike history; move to a paid plan (or fly.toml) for an always-on map.
+services:
+  - type: web
+    name: ddos-attackmap
+    runtime: docker
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      # passed to the Docker build: download the DB-IP databases into the image
+      - key: GEO
+        value: "1"
+      # Render's proxy is one hop in front of the app; rate limits need the real client IP
+      - key: TRUST_PROXY
+        value: "1"
+      - key: CLOUDFLARE_API_TOKEN
+        sync: false
+      - key: ABUSEIPDB_KEY
+        sync: false

@@ -1,99 +1,44 @@
-import axios from 'axios';
-import NodeCache from 'node-cache';
+import { isIP } from 'node:net';
+import { UpstreamError, fetchJson } from './fetchJson.js';
 
-// Cache IP enrichment results for 24 hours (86400 seconds)
-const cache = new NodeCache({ stdTTL: 86400 });
-
-const ABUSEIPDB_API_URL = 'https://api.abuseipdb.com/api/v2/check';
+const API_BASE = 'https://api.abuseipdb.com/api/v2';
+const SERVICE = 'AbuseIPDB';
+export const DDOS_CATEGORY = 4;
 
 export class AbuseIPDBClient {
-    constructor(apiKey) {
-        this.apiKey = apiKey;
-        this.requestCount = 0;
-        this.cacheHits = 0;
-    }
+  constructor(key, { fetch } = {}) {
+    this.key = key;
+    this.fetch = fetch;
+  }
 
-    async checkIP(ip) {
-        // Check cache first
-        const cached = cache.get(ip);
-        if (cached) {
-            this.cacheHits++;
-            console.log(`✓ AbuseIPDB cache hit for ${ip} (${this.cacheHits} total cache hits)`);
-            return cached;
-        }
+  get(path, params) {
+    return fetchJson(`${API_BASE}${path}?${new URLSearchParams(params)}`, {
+      headers: { Key: this.key, Accept: 'application/json' },
+      fetch: this.fetch,
+      service: SERVICE,
+    });
+  }
 
-        // If no API key, return empty enrichment
-        if (!this.apiKey || this.apiKey === '') {
-            return {
-                score: 0,
-                reports: 0,
-                last_reported: null,
-                error: 'No API key configured'
-            };
-        }
+  // Free tier: 5 calls a day, up to 10,000 IPs per call
+  async getBlacklist() {
+    const { body } = await this.get('/blacklist', { limit: '10000' });
+    if (!Array.isArray(body?.data)) throw new UpstreamError(`${SERVICE} sent an unexpected blacklist`, { status: 200 });
+    const generated = Date.parse(body.meta?.generatedAt);
+    return {
+      generatedAt: new Date(Number.isNaN(generated) ? Date.now() : generated).toISOString(),
+      entries: body.data
+        .filter((row) => isIP(row?.ipAddress ?? ''))
+        .map((row) => ({ ip: row.ipAddress, country: row.countryCode ?? null, reportedAt: row.lastReportedAt ?? null })),
+    };
+  }
 
-        try {
-            this.requestCount++;
-            console.log(`🔍 AbuseIPDB API call for ${ip} (request #${this.requestCount})`);
-
-            const response = await axios.get(ABUSEIPDB_API_URL, {
-                params: {
-                    ipAddress: ip,
-                    maxAgeInDays: 90,
-                    verbose: false
-                },
-                headers: {
-                    'Key': this.apiKey,
-                    'Accept': 'application/json'
-                },
-                timeout: 5000
-            });
-
-            const data = response.data.data;
-            const enrichment = {
-                score: data.abuseConfidenceScore || 0,
-                reports: data.totalReports || 0,
-                last_reported: data.lastReportedAt || null,
-            };
-
-            // Cache the result
-            cache.set(ip, enrichment);
-            console.log(`✓ AbuseIPDB enrichment for ${ip}: score=${enrichment.score}, reports=${enrichment.reports}`);
-
-            return enrichment;
-
-        } catch (error) {
-            // Handle rate limiting
-            if (error.response?.status === 429) {
-                console.warn(`⚠️  AbuseIPDB rate limit reached for ${ip}`);
-                const rateLimitResult = {
-                    score: 0,
-                    reports: 0,
-                    last_reported: null,
-                    error: 'Rate limit exceeded'
-                };
-                // Cache the error result briefly (5 minutes)
-                cache.set(ip, rateLimitResult, 300);
-                return rateLimitResult;
-            }
-
-            // Handle other errors
-            console.error(`❌ AbuseIPDB error for ${ip}:`, error.message);
-            const errorResult = {
-                score: 0,
-                reports: 0,
-                last_reported: null,
-                error: error.message
-            };
-            return errorResult;
-        }
-    }
-
-    getStats() {
-        return {
-            totalRequests: this.requestCount,
-            cacheHits: this.cacheHits,
-            cacheKeys: cache.keys().length
-        };
-    }
+  // Free tier: 1,000 calls a day. Used only to label training data.
+  async getDdosLabel(ip) {
+    const { body, headers } = await this.get('/check', { ipAddress: ip, maxAgeInDays: '90', verbose: 'true' });
+    if (!Array.isArray(body?.data?.reports)) throw new UpstreamError(`${SERVICE} sent no reports`, { status: 200 });
+    return {
+      ddos: body.data.reports.some((report) => report.categories?.includes(DDOS_CATEGORY)),
+      remaining: Number(headers.get('x-ratelimit-remaining') ?? Infinity),
+    };
+  }
 }

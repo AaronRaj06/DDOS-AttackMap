@@ -1,0 +1,22 @@
+services:
+  app:
+    build: .
+    env_file:
+      - path: backend/.env
+        required: false
+    environment:
+      HOST: 0.0.0.0
+      PORT: "5050"
+    ports:
+      - "127.0.0.1:5050:5050"
+    volumes:
+      - cache:/app/backend/.cache
+      - geo:/app/backend/data/geo
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    restart: unless-stopped
+
+volumes:
+  cache:
+  geo:
