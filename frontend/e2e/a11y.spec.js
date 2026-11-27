@@ -8,7 +8,7 @@ const RULES = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa', 'best-pra
 
 async function audit(page, label) {
   const { violations } = await new AxeBuilder({ page }).withTags(RULES).analyze();
-  const summary = violations.map((v) => `${v.id} (${v.impact}) on ${v.nodes.map((n) => n.target.join(' ')).slice(0, 2).join(', ')}`);
+  const summary = violations.map((v) => `${v.id} (${v.impact}) on ${v.nodes.map((n) => `${n.target.join(' ')}: ${n.any[0]?.message ?? ''}`).slice(0, 2).join(', ')}`);
   expect(summary, `${label}: accessibility violations`).toEqual([]);
 }
 
@@ -34,6 +34,27 @@ const states = [
   }],
   ['kiosk mode', '/?kiosk=1', async () => {}],
   ['filters from a link', '/?layer=l7&country=DE,FR&flagged=1', async () => {}],
+  ['the tour', '/tour/', async () => {}],
+  ['the tour on a phone', '/tour/', async (page) => page.setViewportSize({ width: 390, height: 844 })],
+  ['the tour, scrolled to a step', '/tour/', async (page) => page.locator('#classifier').scrollIntoViewIfNeeded()],
+  ['the tour, a second network picked', '/tour/', async (page) => {
+    await page.locator('#classifier').scrollIntoViewIfNeeded();
+    const button = page.getByRole('group', { name: 'Networks to inspect' }).getByRole('button').nth(3);
+    await button.click();
+    await expect(button).toHaveAttribute('aria-pressed', 'true');
+    // The previous button fades back to grey. Under software WebGL the globe starves the main thread and that
+    // 80ms fade can take seconds, so audit once no transition is running, not after a fixed time
+    await page.waitForFunction(() => document.getAnimations().length === 0);
+  }],
+  ['the tour, separate layers', '/tour/', async (page) => page.locator('#separate').scrollIntoViewIfNeeded()],
+  ['the tour, spike detection', '/tour/', async (page) => page.locator('#spikes').scrollIntoViewIfNeeded()],
+  ['the tour, outputs', '/tour/', async (page) => page.locator('#outputs').scrollIntoViewIfNeeded()],
+  ['the tour, built to last', '/tour/', async (page) => page.locator('#built').scrollIntoViewIfNeeded()],
+  ['the tour as a 2D page', '/tour/', async (page) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.reload();
+    await expect(page.getByRole('button', { name: 'Enter 3D anyway' })).toBeVisible();
+  }],
 ];
 
 for (const [label, path, setup] of states) {
@@ -57,8 +78,8 @@ test('no accessibility violations on a phone: the menu and the sheet', async ({ 
   await audit(page, 'phone sheet');
 });
 
-test('every control has a visible focus ring and is at least 44px', async ({ page }) => {
-  await page.goto('/');
+for (const path of ['/', '/tour/']) test(`every control has a visible focus ring and is at least 44px: ${path}`, async ({ page }) => {
+  await page.goto(path);
   await page.waitForTimeout(2500);
   const failures = await page.evaluate(() => {
     const bad = [];

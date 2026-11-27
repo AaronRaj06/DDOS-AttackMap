@@ -141,6 +141,8 @@ export function serializeSpike(layer, spike) {
     peakAt: iso(spike.peakAt),
     peakZ: Number(spike.peakZ.toFixed(1)),
     ratio: spike.ratio === null ? null : Number(spike.ratio.toFixed(1)),
+    // The typical level the detector compared against, in the series' own units: lets a chart draw "normal"
+    baseline: Number(spike.baseline.toPrecision(4)),
   };
 }
 

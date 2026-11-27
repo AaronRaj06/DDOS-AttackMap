@@ -1,6 +1,6 @@
 import { LAYER_LABELS } from '../utils/labels';
 
-function Mark({ shape, color }) {
+export function Mark({ shape, color }) {
   return (
     <svg className="mark" viewBox="0 0 12 12" aria-hidden="true">
       {shape === 'ring'

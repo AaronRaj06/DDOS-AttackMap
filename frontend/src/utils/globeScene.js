@@ -1,6 +1,6 @@
 import {
   AdditiveBlending, BufferGeometry, CanvasTexture, CatmullRomCurve3, Float32BufferAttribute, Group, LineBasicMaterial,
-  LineSegments, Mesh, MeshBasicMaterial, PerspectiveCamera, Points, PointsMaterial, Raycaster, Scene, SphereGeometry,
+  LineSegments, Mesh, MeshBasicMaterial, PerspectiveCamera, Points, PointsMaterial, Quaternion, Raycaster, Scene, SphereGeometry,
   Spherical, SRGBColorSpace, TubeGeometry, Vector2, Vector3, WebGLRenderer,
 } from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
@@ -71,10 +71,16 @@ function pointCloud(points, material) {
   return new Points(geometry, material);
 }
 
-export function createGlobe(element, { reducedMotion = false, onHover = () => {}, onSelect = () => {} } = {}) {
+// `interactive: false` is for pages that move the camera themselves (the tour): no dragging, no wheel zoom, no
+// auto-rotate, so the page scrolls instead and setView() decides where the camera looks.
+// `intro` draws the globe in: grid first, coastlines once they have loaded, then the opaque core.
+// `onLoad` fires when the coastlines are in (or failed to load). `maxPixelRatio` trades sharpness for frame rate.
+export function createGlobe(element, {
+  reducedMotion = false, interactive = true, intro = false, maxPixelRatio = 2, onLoad = () => {}, onHover = () => {}, onSelect = () => {},
+} = {}) {
   let reduced = reducedMotion;
   const renderer = new WebGLRenderer({ antialias: true, alpha: true });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, maxPixelRatio));
   element.appendChild(renderer.domElement);
 
   const scene = new Scene();
@@ -82,17 +88,26 @@ export function createGlobe(element, { reducedMotion = false, onHover = () => {}
   camera.position.fromArray(toXYZ(24, -30, 3.4));
 
   const controls = new OrbitControls(camera, renderer.domElement);
+  controls.enabled = interactive;
   controls.enablePan = false;
   controls.enableDamping = !reduced;
   controls.rotateSpeed = 0.5;
-  controls.autoRotate = !reduced;
+  controls.autoRotate = interactive && !reduced;
   controls.autoRotateSpeed = 0.6;
   controls.minDistance = 1.8;
   controls.maxDistance = 9;
 
   // An opaque core hides whatever is on the far side, for the eye and for picking
   const core = new Mesh(new SphereGeometry(0.992, 64, 48), new MeshBasicMaterial({ color: cssColor('--bg-globe') }));
-  scene.add(core, graticule(), starfield());
+  const grid = graticule();
+  const gridOpacity = grid.material.opacity;
+  scene.add(core, grid, starfield());
+  let land = null;
+  let drawIn = intro && !reduced ? { t: 0, landAt: null } : null;
+  if (drawIn) {
+    grid.material.opacity = 0;
+    Object.assign(core.material, { transparent: true, opacity: 0 });
+  }
 
   const abort = new AbortController();
   fetch('/geojson/ne_110m_land.json', { signal: abort.signal })
@@ -100,10 +115,33 @@ export function createGlobe(element, { reducedMotion = false, onHover = () => {}
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       return response.json();
     })
-    .then((data) => scene.add(lines(landSegments(data, 1.002), cssColor('--map-land'))))
+    .then((data) => {
+      land = lines(landSegments(data, 1.002), cssColor('--map-land'));
+      if (drawIn) Object.assign(land.material, { transparent: true, opacity: 0 });
+      scene.add(land);
+    })
     .catch((error) => {
       if (error.name !== 'AbortError') console.error('Could not load the world map', error);
+    })
+    .finally(() => {
+      if (abort.signal.aborted) return;
+      if (drawIn) drawIn.landAt = Math.max(drawIn.t, 0.6);
+      onLoad();
     });
+
+  function drawInStep(delta) {
+    if (!drawIn) return;
+    drawIn.t += delta;
+    grid.material.opacity = gridOpacity * clamp(drawIn.t / 0.8, 0, 1);
+    if (drawIn.landAt === null) return;
+    const since = drawIn.t - drawIn.landAt;
+    if (land) land.material.opacity = clamp(since, 0, 1);
+    core.material.opacity = clamp((since - 0.5) / 0.8, 0, 1);
+    if (core.material.opacity < 1) return;
+    // Done: opaque again, so the core hides the far side and sorts like the dashboard's
+    for (const material of [core.material, land?.material]) if (material) Object.assign(material, { transparent: false, needsUpdate: true });
+    drawIn = null;
+  }
 
   const sprites = { disc: SPRITES.disc(), ring: SPRITES.ring(), glow: SPRITES.glow() };
   const arcs = [];
@@ -114,6 +152,7 @@ export function createGlobe(element, { reducedMotion = false, onHover = () => {}
   let ringPoints = [];
   let highlight = null;
   let paused = false;
+  let view = null;
   let elapsed = 0;
   let last = performance.now();
 
@@ -132,7 +171,8 @@ export function createGlobe(element, { reducedMotion = false, onHover = () => {}
 
   function addArc(event) {
     if (paused || document.hidden) return;
-    const color = layerColor(event.layer);
+    // `color` (a token name) is for the tour's invented arcs, which belong to no layer
+    const color = event.color ? cssColor(event.color) : layerColor(event.layer);
     const from = [event.src_lat, event.src_lon];
     const to = [event.dst_lat, event.dst_lon];
     const path = arcPoints(from, to);
@@ -264,6 +304,19 @@ export function createGlobe(element, { reducedMotion = false, onHover = () => {}
     if (clouds.rings) clouds.rings.material.size = 0.055 + 0.03 * zoomedOut;
   }
 
+  // Glide to a view: turn along the shortest great circle and change distance together, eased.
+  // Distance is relative to the framing that fits the whole globe, so it holds through resizes.
+  function moveCamera(delta) {
+    if (!view) return;
+    view.t = Math.min(1, view.t + delta / view.duration);
+    const eased = 1 - (1 - view.t) ** 3;
+    const direction = view.from.clone().applyQuaternion(new Quaternion().slerp(view.turn, eased));
+    const length = view.fromLength + ((fitted || view.fromLength) / view.zoom - view.fromLength) * eased;
+    camera.position.copy(direction).multiplyScalar(length);
+    camera.lookAt(controls.target);
+  }
+  controls.addEventListener('start', () => { view = null; });
+
   renderer.setAnimationLoop(() => {
     const now = performance.now();
     const delta = Math.min((now - last) / 1000, 0.1);
@@ -272,6 +325,8 @@ export function createGlobe(element, { reducedMotion = false, onHover = () => {}
     animateArcs();
     updateDensity();
     controls.update(delta);
+    moveCamera(delta);
+    drawInStep(delta);
     renderer.render(scene, camera);
   });
 
@@ -295,12 +350,23 @@ export function createGlobe(element, { reducedMotion = false, onHover = () => {}
   observer.observe(element);
   resize();
 
-  const spin = () => { controls.autoRotate = !paused && !reduced; };
+  const spin = () => { controls.autoRotate = interactive && !paused && !reduced; };
 
   return {
     addArc,
+    clearArcs() {
+      while (arcs.length) removeArc(0);
+    },
     setThreats,
     setHighlight,
+    // For the tour's own drawings. Returns a function that removes the object and frees its geometry.
+    add(object) {
+      scene.add(object);
+      return () => {
+        scene.remove(object);
+        release(object);
+      };
+    },
     setPaused(value) {
       paused = value;
       spin();
@@ -317,6 +383,12 @@ export function createGlobe(element, { reducedMotion = false, onHover = () => {}
       reduced = value;
       controls.enableDamping = !value;
       spin();
+    },
+    // Face (lat, lon) from `zoom` times closer than the whole-globe framing. Reduced motion cuts instead of gliding.
+    setView({ lat, lon, zoom = 1 }, { duration = 1.2 } = {}) {
+      const from = camera.position.clone().normalize();
+      const to = new Vector3(...toXYZ(lat, lon, 1)).normalize();
+      view = { from, fromLength: camera.position.length(), turn: new Quaternion().setFromUnitVectors(from, to), zoom, t: reduced ? 1 : 0, duration: Math.max(duration, 0.01) };
     },
     // Keyboard controls: the same moves as dragging and scrolling
     rotate(dTheta, dPhi) {

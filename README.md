@@ -5,7 +5,8 @@ A real-time globe of denial-of-service trends. It replays country-to-country att
 [AbuseIPDB](https://www.abuseipdb.com/) at their approximate location, and can train a classifier
 that ranks which of those IPs are likely DoS sources.
 
-It runs without any API keys in a clearly labeled demo mode.
+It runs without any API keys in a clearly labeled demo mode. For a guided walk through how it works,
+open `/tour` (see [The tour](#the-tour)).
 
 ![The globe in demo mode, with illustrative routes](docs/screenshot.jpg)
 
@@ -105,6 +106,34 @@ motion setting, which panels are open, which notices you dismissed and the last 
 separation, and the accessibility rules. `frontend/src/styles/tokens.css` is the only place a colour is
 defined, and a test fails if a stylesheet uses a raw one.
 
+## The tour
+
+`/tour` is a scroll-driven explainer for people seeing the project for the first time. The globe draws
+itself in, then each scene follows the data: invented arcs (what most attack maps show), Radar routes and
+the network-layer origin, AbuseIPDB networks, the classifier and its factors, the two layers that never
+join, spike detection with a replay and its outputs, how it is built, and a hand-off to the live map.
+
+- **Live or illustrative, per scene.** Every scene that draws data has its own badge. It says `live` only
+  when that scene's data came from the server: Radar arcs from Radar, dots from the blacklist, factors from
+  `GET /threats/{network}`, the ribbon from `GET /timeline`. Anything else is a built-in example and says
+  `illustrative`. The invented arcs are stamped as invented.
+- **Without WebGL, or with reduced motion,** the same content is a single readable page with labelled
+  diagrams. With reduced motion there is an "Enter 3D anyway" button; inside 3D, the camera then cuts
+  instead of gliding.
+- **Budget:** the tour's own code is about 16 kB gzipped, on top of the Three.js the dashboard already
+  loads. Measured at 60 fps in every scene on an Apple M1 (integrated GPU) at 1440x900. It draws at most
+  2,000 dots, 800 on a phone, and caps the pixel ratio at 1.5.
+
+**Editing it.** Every word is in `frontend/src/tour/content.js`, which both the 3D scenes and the 2D page
+read. The claims there match this README, so change them together. The examples on the output cards are
+checked against the server's own formatters by `frontend/test/tour.test.js`.
+
+**Adding a scene.** Add an entry to `steps` in `content.js` (a `nav` label puts it in the step bar). Then
+add `frontend/src/tour/scenes/<Name>.jsx`, register it in `SCENES` in `frontend/src/tour/Stage.jsx`, and
+either give it a camera view in `VIEWS` there or move the camera itself with `globe.current.setView()`.
+A scene's effects run only while it is `active` and must undo what they drew. `scenes/Built.jsx` is the
+simplest example; `scenes/Separate.jsx` shows drawing your own shapes with `globe.current.add()`.
+
 ## Quick start
 
 Needs Node.js 22.12 or newer.
@@ -165,6 +194,8 @@ for 3 days, and in MongoDB for 7 days if it is configured.
 - **Status:** `spike` while one is running, `elevated` while the latest point is at z >= 2, `normal`
   otherwise, and `unavailable` with fewer than 24 baseline points or without a Radar token.
 - **Gaps** longer than 3 normal intervals end a running spike and are never filled in.
+- **Each spike reports** its start, end, peak z-score, its size as a ratio to normal, and `baseline`:
+  the typical level it was measured against, in the series' own units.
 
 Measured on simulated series, not real attacks (`npm run spikes:simulate`, 300 series per row):
 
@@ -304,8 +335,9 @@ Upstream APIs are mocked in tests, using the shapes in their published documenta
 
 `npm run e2e` builds the app and drives it in a real browser against the backend in demo mode: the
 page and WebSocket, a non-blank globe, Pause, filters and links, the keyboard, a 320px viewport, the
-phone menu and sheet, kiosk, reduced motion, the no-WebGL fallback and an axe-core accessibility audit
-of nine states. CI runs it on every push.
+phone menu and sheet, kiosk, reduced motion, the no-WebGL fallback, every scene of the tour in demo
+mode and against a faked live server, and an axe-core accessibility audit of the dashboard and the tour.
+CI runs it on every push.
 
 ## Before deploying publicly
 

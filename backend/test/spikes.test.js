@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { DEFAULTS, detect, layerStatus, median, robustZ, summarize } from '../services/spikes.js';
+import { DEFAULTS, detect, layerStatus, median, robustZ, serializeSpike, summarize } from '../services/spikes.js';
 
 const STEP = 15 * 60 * 1000;
 const T0 = Date.UTC(2026, 10, 20);
@@ -178,4 +178,11 @@ test('summaries rank the worst layer and ignore unavailable ones', () => {
   assert.equal(both.status, 'spike');
   assert.deepEqual(both.active.map((s) => s.layer), ['l7']);
   assert.match(both.active[0].start, /^2026-11-2\dT/);
+});
+
+test('a serialized spike carries the typical level it was measured against, consistent with its ratio', () => {
+  const [spike] = detect(series((i) => (i === 23 ? 1000 : 100))).spikes;
+  const out = serializeSpike('l3', spike);
+  assert.ok(Math.abs(out.baseline - 100) < 10, `baseline ${out.baseline} should be near the series' level of 100`);
+  assert.ok(Math.abs(spike.peakValue / out.baseline - spike.ratio) < 0.01 * spike.ratio);
 });

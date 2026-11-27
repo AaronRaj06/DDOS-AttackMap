@@ -31,7 +31,7 @@ It is honest about its data. Radar routes and AbuseIPDB IPs are drawn separately
 ## Capabilities and Constraints
 
 - Stack: Node.js + Express 5 + `ws` backend, React 19 + Vite + Three.js frontend, one Docker image.
-- Surfaces: the dashboard (globe or flat map, status tiles, filters, timeline with spike replay, sidebar panels). A showcase page for the portfolio link was requested on 2026-11-27 and does not exist yet.
+- Surfaces: the dashboard (globe or flat map, status tiles, filters, timeline with spike replay, sidebar panels). A showcase page, the scroll-driven tour at `/tour`, was added on 2026-11-27 (README → The tour).
 - Carried over from the repo, enforced by tests, not re-confirmed by the user on 2026-11-27: 44px targets and WCAG AA contrast (axe e2e), colour-blind-safe layer and severity colours that never rely on colour alone (token tests), no third-party font downloads (CSP), the coral `#ff6b6b` brand accent.
 
 ## Brand Commitments
@@ -42,7 +42,7 @@ It is honest about its data. Radar routes and AbuseIPDB IPs are drawn separately
 ## Evidence on Hand
 
 - Real data only when tokens are configured; otherwise built-in illustrative routes, always labelled.
-- Assets: `frontend/public/favicon.svg`, `frontend/public/og.png`, `frontend/public/geojson/`, `docs/screenshot.jpg` (stale since 2026-11-27 polish).
+- Assets: `frontend/public/favicon.svg`, `frontend/public/og.png`, `frontend/public/geojson/`, `docs/screenshot.jpg` (refreshed 2026-11-27).
 - No testimonials, users, benchmarks or deployment claims exist. Do not invent them.
 
 ## Product Principles
