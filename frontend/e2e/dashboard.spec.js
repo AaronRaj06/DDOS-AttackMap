@@ -244,3 +244,8 @@ test('without WebGL the flat map and every panel are still there', async ({ page
   // the browser is told, loudly, that a WebGL context could not be made; that is the point of this test
   problems = problems.filter((text) => !/WebGL|THREE|Globe-.*\.js/i.test(text));
 });
+
+test('a one-line bulletin sums up the dashboard, and in demo mode reports no status', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.bulletin')).toHaveText(/^Demo data: the routes are illustrative, so there is no spike status to report\.$/);
+});

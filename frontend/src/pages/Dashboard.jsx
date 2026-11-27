@@ -10,6 +10,7 @@ import StatusTiles from '../components/StatusTiles';
 import { useFilters } from '../hooks/useFilters';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useMotion } from '../hooks/useMotion';
+import { bulletin } from '../utils/bulletin';
 import { useNow } from '../hooks/useNow';
 import { usePersistentState } from '../hooks/usePersistentState';
 import { useWebSocket } from '../hooks/useWebSocket';
@@ -120,6 +121,7 @@ export default function Dashboard() {
       <LiveStatus spikes={spikes} />
       <main id="main" className="layout">
         <section className="stage" aria-label="Attack map">
+          {status && <p className="bulletin">{bulletin(status, spikes, visibleCorridors)}</p>}
           <StatusTiles status={status} spikes={spikes} corridors={visibleCorridors} now={now} />
           <FilterBar filters={filters} onChange={setFilters} />
           <div className="viewport" ref={viewportRef}>

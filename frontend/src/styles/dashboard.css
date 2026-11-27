@@ -125,6 +125,19 @@
   color: var(--text-2);
 }
 
+/* The dashboard in one sentence, above the tiles */
+.bulletin {
+  max-width: 60rem;
+  color: var(--text-1);
+  font-size: var(--text-md);
+  line-height: var(--leading-body);
+}
+
+.app[data-kiosk='true'] .bulletin {
+  font-size: var(--text-xl);
+  line-height: var(--leading-tight);
+}
+
 /* Status tiles */
 .tiles {
   display: grid;
