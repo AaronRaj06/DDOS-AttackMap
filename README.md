@@ -8,6 +8,8 @@ A real-time DDoS attack visualization system with an interactive 3D globe, WebSo
 
 ## 🎥 Demo
 
+![DDoS Attack Live Map dashboard: 3D globe with attack-type legend and live stats](docs/screenshot.png)
+
 Interactive 3D globe showing real-time DDoS attack patterns with:
 - Live attack arcs between source and destination countries
 - Color-coded threat levels
